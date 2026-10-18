@@ -101,7 +101,15 @@ import FanControlCore
             let issued = Int(Date().timeIntervalSince1970 * 1000)
             var sent = false
             var musicSent = false
-            defer { if ticket == generation && feedback?.id == f.id && feedback?.phase == .pending { feedback?.phase = .unconfirmed; message = "Not confirmed" } }
+            var completed = false
+            defer {
+                if ticket == generation && feedback?.id == f.id && feedback?.phase == .pending { feedback?.phase = .unconfirmed; message = "Not confirmed" }
+                if action == "stop_exercise" && !completed {
+                    var cancel = panelBody(d.panel!, command: "cancel_stop"); cancel["operation_id"] = operationID
+                    let cancellationBody = cancel
+                    Task { _ = try? await client.request(cancellationBody) }
+                }
+            }
             do {
                 while Date() < deadline {
                     try Task.checkCancellation()
@@ -137,23 +145,21 @@ import FanControlCore
                     }
                     guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                     if sent && Evidence.matches(action, state, panel: d.panel) {
-                        observed = state; feedback?.phase = .confirmed; message = d.panel == nil ? "Confirmed by Home Assistant" : "HA confirmed · physical state not independently verified"; return
+                        completed = true; observed = state; feedback?.phase = .confirmed; message = d.panel == nil ? "Confirmed by Home Assistant" : "HA confirmed · physical state not independently verified"; return
                     }
                     try await Task.sleep(nanoseconds: 700_000_000)
                 }
             } catch { }
             guard ticket == generation, feedback?.id == f.id else { return }
             feedback?.phase = .unconfirmed; message = "Not confirmed"
-            if action == "stop_exercise" {
-                var cancel = panelBody(d.panel!, command: "cancel_stop"); cancel["operation_id"] = operationID
-                _ = try? await client.request(cancel)
-            }
+
         }
     }
     func cancel() { command?.cancel(); if busy { feedback?.phase = .unconfirmed; message = "Not confirmed" } }
     func paired(_ value: Connection) { connection = value; enter() }
     func forget() { leave(); Vault.clear(); connection = nil; feedback = nil }
 }
+
 
 
 

@@ -2,14 +2,17 @@ import Foundation
 import CryptoKit
 import Security
 
-public final class HTTP: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
-    private lazy var session: URLSession = {
-        let c = URLSessionConfiguration.ephemeral
-        c.timeoutIntervalForRequest = 6; c.timeoutIntervalForResource = 6
-        c.urlCache = nil; c.httpCookieStorage = nil
-        return URLSession(configuration: c, delegate: self, delegateQueue: nil)
-    }()
-    public func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
+private final class RedirectPolicy: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
+}
+public final class HTTP: @unchecked Sendable {
+    private let session: URLSession
+    public init(configuration: URLSessionConfiguration = .ephemeral) {
+        configuration.timeoutIntervalForRequest = 6; configuration.timeoutIntervalForResource = 6
+        configuration.urlCache = nil; configuration.httpCookieStorage = nil
+        session = URLSession(configuration: configuration, delegate: RedirectPolicy(), delegateQueue: nil)
+    }
+    deinit { session.invalidateAndCancel() }
     public func post(_ base: String, path: String, body: [String: Any], token: String? = nil) async throws -> [String: Any] {
         let url = try Connection.address(base).appendingPathComponent(path)
         var r = URLRequest(url: url); r.httpMethod = "POST"
@@ -25,10 +28,10 @@ public final class HTTP: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     }
 }
 public actor Integration {
-    private let http = HTTP()
+    private let http: HTTP
     public let connection: Connection
     private var endpoint: String
-    public init(_ connection: Connection) { self.connection = connection; endpoint = connection.url }
+    public init(_ connection: Connection, http: HTTP = HTTP()) { self.connection = connection; self.http = http; endpoint = connection.url }
     public func request(_ body: [String: Any]) async throws -> [String: Any] {
         do { return try await exchange(body, endpoint) }
         catch {
@@ -93,3 +96,5 @@ extension Data {
         self.init(bytes)
     }
 }
+
+

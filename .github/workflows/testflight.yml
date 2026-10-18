@@ -24,7 +24,6 @@ jobs:
       IOS_TEAM_ID: FKR675M7PM
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-      ASC_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
       BUILD_NUMBER: ${{ inputs.build_number }}
       UPLOAD: ${{ inputs.upload }}
     steps:
@@ -34,6 +33,8 @@ jobs:
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: |
           test -n "$ASC_KEY_ID" && test -n "$ASC_ISSUER_ID" && test -n "$ASC_PRIVATE_KEY"
+          ASC_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          echo "ASC_KEY_PATH=$ASC_KEY_PATH" >> "$GITHUB_ENV"
           umask 077
           printf '%s' "$ASC_PRIVATE_KEY" > "$ASC_KEY_PATH"
           password=$(openssl rand -hex 32)
@@ -59,3 +60,4 @@ jobs:
           security default-keychain -d user -s login.keychain-db || true
           security delete-keychain "$RUNNER_TEMP/watch-signing.keychain-db" || true
           rm -f "$ASC_KEY_PATH"
+

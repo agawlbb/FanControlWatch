@@ -33,6 +33,7 @@ public final class Pairing {
                   let wrappedText = envelope["wrapped_key"] as? String, let wrapped = Data(base64Encoded: wrappedText), wrapped.count == 256,
                   let key = SecKeyCreateDecryptedData(privateKey, .rsaEncryptionOAEPSHA256, wrapped as CFData, &error) as Data?, key.count == 32 else { throw ControlError.invalidResponse }
             let plain = try open(envelope, key: SymmetricKey(data: key), aad: code)
+            guard let settings = try JSONSerialization.jsonObject(with: plain) as? [String: Any], settings["version"] as? Int == 1, settings["integration"] as? Bool == true else { throw ControlError.invalidConfiguration }
             let connection = try JSONDecoder().decode(Connection.self, from: plain).validated()
             try Task.checkCancellation()
             try Vault.save(connection)
@@ -43,3 +44,4 @@ public final class Pairing {
         throw ControlError.notConfirmed
     }
 }
+
