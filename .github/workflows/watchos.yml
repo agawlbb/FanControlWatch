@@ -22,13 +22,17 @@ jobs:
         run: xcodegen generate
       - name: Compile watchOS simulator app
         run: xcodebuild -project FanControlWatch.xcodeproj -scheme FanControlWatch -sdk watchsimulator -destination 'generic/platform=watchOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Capture watch simulator first launch
+        run: bash scripts/simulator_preview.sh
       - name: Compile unsigned watchOS archive
         run: xcodebuild -project FanControlWatch.xcodeproj -scheme FanControl -destination 'generic/platform=iOS' -archivePath build/FanControlWatch.xcarchive CODE_SIGNING_ALLOWED=NO archive
       - uses: actions/upload-artifact@v4
         with:
           name: FanControlWatch-unsigned
           path: |
+            build/watch-first-launch.png
             build/FanControlWatch.xcarchive
             build/Build/Products/Debug-watchsimulator/FanControlWatch.app
           retention-days: 7
+
 
