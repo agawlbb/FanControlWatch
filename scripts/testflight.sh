@@ -45,6 +45,10 @@ with tempfile.TemporaryDirectory() as temp:
     for bundle in [app,*list((app/'Watch').glob('*.app'))]:
         info=plistlib.loads((bundle/'Info.plist').read_bytes())
         assert info['CFBundleIdentifier'] in ['dev.fancontrol.watch','dev.fancontrol.watch.watchkitapp']
+        assert info['CFBundlePackageType']=='APPL'
+        signature=subprocess.run(['codesign','-d','--verbose=4',str(bundle)],capture_output=True,text=True,check=True).stderr
+        assert 'Identifier='+info['CFBundleIdentifier']+'\n' in signature, 'Signature identifier mismatch'
+        assert 'TeamIdentifier=FKR675M7PM' in signature, 'Signature team mismatch'
         assert (bundle/'embedded.mobileprovision').is_file(), 'Distribution profile missing'
 PY
 if [[ "${UPLOAD:-false}" == true ]]; then
@@ -57,4 +61,5 @@ PY
   xcodebuild -exportArchive -archivePath build/FanControlWatch.xcarchive -exportPath build/upload \
     -exportOptionsPlist build/UploadOptions.plist -allowProvisioningUpdates "${auth[@]}"
 fi
+
 
