@@ -40,7 +40,7 @@ targets:
         NSLocalNetworkUsageDescription: Connect to your Home Assistant for watch pairing and approved controls.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
-        ITSAppUsesNonExemptEncryption: true
+        ITSAppUsesNonExemptEncryption: false
     scheme:
       gatherCoverageData: false
   FanControl:
@@ -70,7 +70,8 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationLaunchProhibited: true
         WKWatchOnly: true
-        ITSAppUsesNonExemptEncryption: true
+        ITSAppUsesNonExemptEncryption: false
     scheme:
       gatherCoverageData: false
+
 

@@ -10,7 +10,7 @@ xcodegen generate
 mkdir -p build
 xcodebuild -project FanControlWatch.xcodeproj -scheme FanControl -configuration Release \
   -jobs 2 -destination 'generic/platform=iOS' -archivePath build/FanControlWatch.xcarchive \
-  DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGNING_ALLOWED=NO \
+  DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGNING_ALLOWED=YES \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER" -allowProvisioningUpdates "${auth[@]}" archive
 python3 - <<'PY'
 import os, plistlib
@@ -32,7 +32,7 @@ PY
 
 xcodebuild -exportArchive -archivePath build/FanControlWatch.xcarchive -exportPath build/signed \
   -exportOptionsPlist build/ExportOptions.plist -allowProvisioningUpdates "${auth[@]}"
-# Distribution signing happens at export; avoid allocating a disposable development certificate.
+# Archive with the existing imported identity; distribution signing happens at export.
 python3 - <<'PY'
 import plistlib, subprocess, tempfile, zipfile
 from pathlib import Path
@@ -61,5 +61,6 @@ PY
   xcodebuild -exportArchive -archivePath build/FanControlWatch.xcarchive -exportPath build/upload \
     -exportOptionsPlist build/UploadOptions.plist -allowProvisioningUpdates "${auth[@]}"
 fi
+
 
 
