@@ -14,7 +14,7 @@ Enter your HA local or HTTPS address on the watch, choose Pair, then approve the
 
 ## Builds
 
-GitHub Actions runs `swift test`, generates the Xcode project using XcodeGen, compiles for the watch simulator and archives for physical watchOS using GitHub macOS runners. Download the unsigned artifact for inspection; it cannot be installed through TestFlight until Apple signing is configured.
+GitHub Actions runs `swift test`, generates the Xcode project using XcodeGen, compiles for the watch simulator and archives for physical watchOS using GitHub macOS runners. Unsigned CI artifacts are for inspection. The signed release is distributed through TestFlight.
 
 Version: 0.1.0 (build 1). Apple team: FKR675M7PM. Bundle ID: dev.fancontrol.watch.
 
@@ -25,4 +25,9 @@ Physical checks remain: local networking and pairing, revoked access, all config
 The `TestFlight` workflow builds on GitHub's macOS runner, validates the watch-only container and embedded watch app, signs with automatic Apple provisioning, and optionally uploads to App Store Connect. Required repository secrets: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_PRIVATE_KEY`, `IOS_DEVELOPMENT_CERT_P12`, `IOS_DEVELOPMENT_CERT_PASSWORD`. Do not commit Apple keys, certificates, profiles or HA pairing credentials. A workflow can also execute in an existing trusted signing repository without moving its credentials here.
 
 The distribution container is `dev.fancontrol.watch`; the independently running watch app is `dev.fancontrol.watch.watchkitapp`. App Store Connect app ID: 6824292561. SIGNING-REVIEW.md documents the approved OS-provided cryptography declaration.
+
+
+Version 0.1.0 build 1 was compiled, signed, verified and accepted by App Store Connect on October 18, 2026 using GitHub macOS runners. Release source: `233cac2b77bff814ae8bbb6ebce928ffa42b1b14`. The [successful release run](https://github.com/agawlbb/coffey-table-recipes/actions/runs/39161828320) reused credentials within the existing trusted signing repository; no credentials were copied here. All 13 core tests passed. Physical Apple Watch and Home Assistant/vehicle checks in VERIFICATION.md remain outstanding.
+
+Build 1 has completed processing and is assigned to the manual Internal group. The account holder's tester invitation is available through TestFlight. Initial release limitations and physical checks are listed in BETA.md and VERIFICATION.md.
 
