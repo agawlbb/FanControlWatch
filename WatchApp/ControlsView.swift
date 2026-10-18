@@ -88,7 +88,7 @@ struct ControlsView: View {
         let observed = model.observed[role + "_state"] as? String
         let matching = model.feedback?.command.hasPrefix(role + "_") == true
         let action = matching && model.feedback?.phase != .confirmed ? model.feedback!.command : role + "_" + Evidence.coverIntent(observed)
-        return control(action, title + "\n" + (["open", "closed", "opening", "closing"].contains(observed ?? "") ? observed!.uppercased() : "CLOSED"), known: observed == "open" || observed == "closed")
+        return control(action, title + "\n" + (["open", "closed", "opening", "closing"].contains(observed ?? "") ? observed!.uppercased() : "CLOSED"), known: observed == "open" || observed == "closed", enabled: observed != "opening" && observed != "closing")
     }
 }
 
@@ -124,5 +124,6 @@ struct SetupView: View {
         .onDisappear { pairing?.cancel() }
     }
 }
+
 
 

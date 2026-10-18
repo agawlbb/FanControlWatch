@@ -25,8 +25,9 @@ final class PanelEvidenceTests: XCTestCase {
         let p = try panel("exercise")
         XCTAssertFalse(Evidence.matches("stop_exercise",["locked":true,"vehicle_ready":true,"operation_status":"pending"],panel:p))
         XCTAssertFalse(Evidence.matches("stop_exercise",["vehicle_ready":true,"operation_status":"cancelled"],panel:p))
-        XCTAssertTrue(Evidence.matches("stop_exercise",["vehicle_ready":true,"operation_status":"complete"],panel:p))
+        XCTAssertTrue(Evidence.matches("stop_exercise",["operation_status":"complete"],panel:p))
         XCTAssertFalse(Evidence.matches("start_exercise",["vehicle_ready":true,"steps":[["status":"requested"]]],panel:p))
         XCTAssertTrue(Evidence.matches("start_exercise",["vehicle_ready":true,"locked":true],panel:p))
     }
 }
+

@@ -131,7 +131,14 @@ import FanControlCore
                     } else { available = ["on", "off"].contains(state["state"] as? String ?? "") || ["script", "scene"].contains(d.domain) && !["unknown", "unavailable", ""].contains(state["state"] as? String ?? "") }
                     if available && (!sent || action == "stop_exercise") {
                         sent = true // Ambiguous responses must never replay one-shot actions.
-                        state = try await client.request(body)
+                        do { state = try await client.request(body) }
+                        catch {
+                            try Task.checkCancellation()
+                            if case ControlError.rejected = error { throw error }
+                            if action == "activate" || action == "leave" { throw error }
+                            // Delivery may have happened. Poll evidence without replaying the command.
+                            state = [:]
+                        }
                         if action == "activate" || action == "leave" {
                             guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                             feedback?.phase = .accepted; message = "Request accepted"; return
@@ -159,6 +166,7 @@ import FanControlCore
     func paired(_ value: Connection) { connection = value; enter() }
     func forget() { leave(); Vault.clear(); connection = nil; feedback = nil }
 }
+
 
 
 

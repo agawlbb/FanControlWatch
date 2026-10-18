@@ -43,6 +43,7 @@ public struct Connection: Codable, Equatable, Sendable {
             guard device.entity.range(of: "^[a-z_][a-z0-9_]*\\.[a-z0-9_]+$", options: .regularExpression) != nil,
                   !device.title.isEmpty, device.title.count <= 80 else { throw ControlError.invalidConfiguration }
             if let p = device.panel {
+                try p.validateRoles()
                 guard device.entity == "panel." + p.id, ["work_morning", "exercise", "driving"].contains(p.type),
                       p.color == nil || (p.color!.count == 3 && p.color!.allSatisfy { (0...255).contains($0) }) else { throw ControlError.invalidConfiguration }
             }
@@ -79,7 +80,7 @@ public enum Evidence {
     public static let percentages = [16, 33, 50, 66, 83, 100]
     public static func matches(_ command: String, _ state: [String: Any], panel: Panel?) -> Bool {
         if let panel {
-            if panel.vehicle && command != "garage_open" && command != "garage_close" && state["vehicle_ready"] as? Bool != true { return false }
+            if panel.vehicle && command != "stop_exercise" && command != "garage_open" && command != "garage_close" && state["vehicle_ready"] as? Bool != true { return false }
             switch command {
             case "climate_on", "climate_off": return state["climate_available"] as? Bool == true && state["climate_on"] as? Bool == (command == "climate_on")
             case "garage_open", "garage_close", "trunk_open", "trunk_close":
@@ -98,4 +99,27 @@ public enum Evidence {
         return false
     }
     public static func coverIntent(_ observed: String?) -> String { observed == "open" ? "close" : "open" }
+}
+
+
+extension Panel {
+    public func validateRoles() throws {
+        func entity(_ value: String?, domains: String) -> Bool {
+            guard let value, value.count <= 160 else { return false }
+            return value.range(of: "^(\(domains))\\.[a-z0-9_]+$", options: .regularExpression) != nil
+        }
+        guard id.range(of:"^[a-z][a-z0-9_]{0,39}$",options:.regularExpression) != nil, id != "devices", !name.isEmpty, name.count <= 40 else { throw ControlError.invalidConfiguration }
+        if vehicle || !(awake_entity ?? "").isEmpty {
+            guard entity(wake_entity,domains:"button"), entity(awake_entity,domains:"binary_sensor") else { throw ControlError.invalidConfiguration }
+        }
+        switch type {
+        case "driving":
+            guard entity(garage_entity,domains:"cover"), entity(trunk_entity,domains:"cover"), garage_entity != trunk_entity, entity(climate_entity,domains:"climate"), vehicle else { throw ControlError.invalidConfiguration }
+        case "exercise":
+            guard entity(lock_entity,domains:"lock"), entity(climate_entity,domains:"climate"), vehicle else { throw ControlError.invalidConfiguration }
+        case "work_morning":
+            guard entity(battery_entity,domains:"sensor"), entity(climate_entity,domains:"climate|switch|input_boolean"), entity(script_entity,domains:"script") else { throw ControlError.invalidConfiguration }
+        default: throw ControlError.invalidConfiguration
+        }
+    }
 }
