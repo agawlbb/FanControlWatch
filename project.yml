@@ -1,0 +1,42 @@
+name: FanControlWatch
+options:
+  bundleIdPrefix: dev.fancontrol
+  deploymentTarget:
+    watchOS: '10.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.9'
+    DEVELOPMENT_TEAM: FKR675M7PM
+    MARKETING_VERSION: '0.1.0'
+    CURRENT_PROJECT_VERSION: '1'
+packages:
+  FanControlCore:
+    path: .
+targets:
+  FanControlWatch:
+    type: application
+    platform: watchOS
+    sources: [WatchApp]
+    dependencies:
+      - package: FanControlCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.fancontrol.watch
+        SDKROOT: watchos
+        TARGETED_DEVICE_FAMILY: '4'
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: WatchApp/Info.plist
+      properties:
+        CFBundleDisplayName: Fan Control
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKApplication: true
+        WKWatchOnly: true
+        NSLocalNetworkUsageDescription: Connect to your Home Assistant for watch pairing and approved controls.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        ITSAppUsesNonExemptEncryption: true
+    scheme:
+      gatherCoverageData: false
