@@ -16,6 +16,7 @@ struct ControlsView: View {
                     Text(d.title).font(.headline)
                     if let p = d.panel { panel(p) } else { device(d) }
                     if !model.message.isEmpty { Text(model.message).font(.caption2).foregroundStyle(.gray) }
+                    if !model.musicEvidence.isEmpty { Text(model.musicEvidence).font(.caption2).foregroundStyle(.gray) }
                     if model.busy { Button("Cancel request") { model.cancel() } }
                     Button("Connection") { setup = true }.font(.caption)
                 } else {
@@ -47,13 +48,13 @@ struct ControlsView: View {
         let state = model.observed["state"] as? String
         let available = state == "on" || state == "off"
         if ["script", "scene"].contains(d.domain) {
-            control("activate", "REQUESTED", known: false, enabled: state != nil && state != "unavailable" && state != "unknown")
+            control("activate", "Run", known: true, enabled: state != nil && state != "unavailable" && state != "unknown")
         } else if ["fan", "light", "switch", "input_boolean"].contains(d.domain) {
             // Label projects the absolute next state immediately on the originating control.
             let pending = model.feedback?.phase != .confirmed && (model.feedback?.command == "turn_on" || model.feedback?.command == "turn_off")
             let action = pending ? model.feedback!.command : state == "on" ? "turn_off" : "turn_on"
             control(action, pending ? model.feedback!.label : state == "on" ? "ON" : state == "off" ? "OFF" : "UNKNOWN", known: available, selected: state == "on", enabled: available)
-                .simultaneousGesture(TapGesture().onEnded { })
+                
             if d.domain == "fan" {
                 let percentage = (model.observed["attributes"] as? [String: Any])?["percentage"] as? Int
                 let speed = percentage.flatMap { value in Evidence.percentages.firstIndex(where: { $0 >= value }).map { $0 + 1 } }
@@ -71,8 +72,8 @@ struct ControlsView: View {
             cover("garage", "Garage"); cover("trunk", "Trunk")
             control("climate_on", "Climate ON", known: model.observed["climate_available"] as? Bool == true, selected: model.observed["climate_on"] as? Bool == true)
         } else if p.type == "exercise" {
-            control("start_exercise", "Lock requested", known: false)
-            control("stop_exercise", "Stop REQUESTED", known: false)
+            control("start_exercise", "Start exercise", known: model.observed["start_available"] as? Bool == true)
+            control("stop_exercise", "Stop exercise", known: model.observed["stop_available"] as? Bool == true)
         } else {
             let battery = model.observed["battery"] as? Double
             Text(battery.map { String(format: "%.0f%%", $0) } ?? "?%")
@@ -123,4 +124,5 @@ struct SetupView: View {
         .onDisappear { pairing?.cancel() }
     }
 }
+
 

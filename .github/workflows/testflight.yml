@@ -1,0 +1,61 @@
+name: TestFlight
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: Unique positive build number
+        required: true
+        default: '1'
+        type: string
+      upload:
+        description: Upload signed build to TestFlight
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      IOS_TEAM_ID: FKR675M7PM
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      UPLOAD: ${{ inputs.upload }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare existing Apple signing authentication
+        env:
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          test -n "$ASC_KEY_ID" && test -n "$ASC_ISSUER_ID" && test -n "$ASC_PRIVATE_KEY"
+          umask 077
+          printf '%s' "$ASC_PRIVATE_KEY" > "$ASC_KEY_PATH"
+          password=$(openssl rand -hex 32)
+          echo "::add-mask::$password"
+          security create-keychain -p "$password" "$RUNNER_TEMP/watch-signing.keychain-db"
+          security set-keychain-settings -lut 21600 "$RUNNER_TEMP/watch-signing.keychain-db"
+          security unlock-keychain -p "$password" "$RUNNER_TEMP/watch-signing.keychain-db"
+          security list-keychains -d user -s "$RUNNER_TEMP/watch-signing.keychain-db" login.keychain-db
+          security default-keychain -d user -s "$RUNNER_TEMP/watch-signing.keychain-db"
+      - run: brew install xcodegen
+      - name: Build, verify, sign and upload watch-only app
+        run: bash scripts/testflight.sh
+      - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.upload }}
+        with:
+          name: FanControlWatch-signed
+          path: build/signed/*.ipa
+          if-no-files-found: error
+          retention-days: 7
+      - name: Remove temporary signing credentials
+        if: always()
+        run: |
+          security default-keychain -d user -s login.keychain-db || true
+          security delete-keychain "$RUNNER_TEMP/watch-signing.keychain-db" || true
+          rm -f "$ASC_KEY_PATH"

@@ -11,6 +11,7 @@ import FanControlCore
     @Published var feedback: Feedback?
     @Published var message = ""
     @Published var speedDraft: Int?
+    @Published var musicEvidence = ""
     private var client: Integration?
     private var work: Task<Void, Never>?
     private var command: Task<Void, Never>?
@@ -68,6 +69,7 @@ import FanControlCore
         } catch {
             guard ticket == generation, !Task.isCancelled else { return }
             observed = [:]; message = "State unknown · Refresh available"
+            if case ControlError.rejected(let status) = error, [401, 403].contains(status), connection == old { forget(); message = "Watch access revoked. Pair again." }
         }
     }
     func adjust(_ delta: Int) {
@@ -85,12 +87,13 @@ import FanControlCore
     func send(_ action: String, label: String) {
         guard !busy, visible, let c = connection, let d = c.active, let client else { return }
         draft?.cancel(); speedDraft = nil
-        let requested = action == "turn_on" ? "ON" : action == "turn_off" ? "OFF" : action.hasSuffix("_open") ? label.components(separatedBy: "\n")[0] + "\nOPEN" : action.hasSuffix("_close") ? label.components(separatedBy: "\n")[0] + "\nCLOSED" : action == "climate_on" ? "Climate ON" : action == "climate_off" ? "Climate OFF" : action == "activate" || action == "leave" ? "REQUESTED" : label
+        let requested = RequestedPresentation.label(command: action, original: label)
         let f = Feedback(target: c.identity, command: action, label: requested)
-        feedback = f; message = "Requested"
+        feedback = f; message = "Requested"; musicEvidence = ""
         let ticket = generation
         if action == "start_exercise", let url = URL(string: "spotify:") {
             WKExtension.shared().openSystemURL(url)
+            musicEvidence = "Spotify launch requested; playback unknown"
         }
         command = Task {
             let deadline = Date().addingTimeInterval(60)
@@ -129,8 +132,8 @@ import FanControlCore
                     if action == "start_exercise" && !musicSent && sent {
                         musicSent = true
                         // Music has its own one-shot evidence and cannot confirm vehicle state.
-                        do { _ = try await client.request(panelBody(d.panel!, command: "start_music")); message = "Music request accepted; playback unknown" }
-                        catch { message = "Music not confirmed" }
+                        do { _ = try await client.request(panelBody(d.panel!, command: "start_music")); musicEvidence = "Music request accepted; playback unknown" }
+                        catch { musicEvidence = "Music not confirmed" }
                     }
                     guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                     if sent && Evidence.matches(action, state, panel: d.panel) {
@@ -151,5 +154,6 @@ import FanControlCore
     func paired(_ value: Connection) { connection = value; enter() }
     func forget() { leave(); Vault.clear(); connection = nil; feedback = nil }
 }
+
 
 
