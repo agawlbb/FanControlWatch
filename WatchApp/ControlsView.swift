@@ -40,7 +40,7 @@ struct ControlsView: View {
         .onChange(of: scenePhase) { _, phase in if phase == .active && !setup { model.enter() } else { model.leave() } }
         .onChange(of: setup) { _, value in if value { model.leave() } }
     }
-    private func control(_ action: String, _ label: String, known: Bool = true, selected: Bool = false, enabled: Bool = true) -> some View {
+    private func control(_ action: String, _ label: String, known: Bool = true, enabled: Bool = true) -> some View {
         let applies = model.feedback?.command == action
         let feedback = applies ? model.feedback : nil
         let gray = !model.stateFresh || (feedback?.gray ?? !known)
@@ -60,7 +60,7 @@ struct ControlsView: View {
             // Label projects the absolute next state immediately on the originating control.
             let pending = model.feedback?.phase != .confirmed && (model.feedback?.command == "turn_on" || model.feedback?.command == "turn_off")
             let action = pending ? model.feedback!.command : state == "on" ? "turn_off" : "turn_on"
-            control(action, pending ? model.feedback!.label : state == "on" ? "ON" : state == "off" ? "OFF" : "UNKNOWN", known: available, selected: state == "on", enabled: available)
+            control(action, pending ? model.feedback!.label : state == "on" ? "ON" : state == "off" ? "OFF" : "UNKNOWN", known: available, enabled: available)
                 
             if d.domain == "fan" {
                 let percentage = (model.observed["attributes"] as? [String: Any])?["percentage"] as? Int
@@ -73,7 +73,7 @@ struct ControlsView: View {
                 }
                 .tint(.mint)
             }
-        } else { Text("Controls unavailable") }
+        } else { Text("Controls unavailable").foregroundStyle(.gray) }
     }
     @ViewBuilder private func panel(_ p: Panel) -> some View {
         if p.type == "driving" {
@@ -89,6 +89,7 @@ struct ControlsView: View {
         } else {
             let battery = model.observed["battery"] as? Double
             Text(battery.map { String(format: "%.0f%%", $0) } ?? "?%")
+                .foregroundStyle(model.stateFresh && battery != nil ? Color.mint : Color.gray)
             climate(p)
             control("leave", p.script_label ?? "Leave for work", known: false, enabled: model.observed["script_available"] as? Bool == true)
         }
