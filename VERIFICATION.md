@@ -30,3 +30,5 @@ October 19, 2026: release source `9a8c925197eeafbf5b17e90479de02a2536c6ef0` pass
 Simulator inspection confirms watchOS continues displaying the system clock despite `.persistentSystemOverlays(.hidden)`. This part of the requested panel cleanup remains a platform limitation; no private API is used to suppress it.
 
 Replacement build 3 (`7d9bd4ec8a7d3adcd2086b0889f0aef65247c575`) refreshes HA selection before visible entry wake, and suppresses that wake when configuration/state refresh failed or the generation changed. All 16 tests, signed archive/export/profile verification, and upload passed: https://github.com/agawlbb/coffey-table-recipes/actions/runs/39330236334. Android `validateDebug` passed again after this final lifecycle correction.
+
+App Store Connect processed 0.2.0 (3) and its Internal group assignment was verified with one tester. What to Test notes are saved. Build ID: `60a78b9d-99bd-44ee-a362-c0901305578c`. Earlier builds remain available. Installing and opening build 3 is still required to verify migration of the existing Apple Watch's platform label and the physical checks above.
