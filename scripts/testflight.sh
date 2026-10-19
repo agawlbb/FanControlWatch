@@ -29,7 +29,7 @@ assert plistlib.loads((watch[0]/'Info.plist').read_bytes())['WKWatchOnly']
 extensions=list((watch[0]/'PlugIns').glob('*.appex'))
 assert len(extensions)==1, 'Missing active-panel complication'
 info=plistlib.loads((extensions[0]/'Info.plist').read_bytes())
-assert info['CFBundleIdentifier']=='dev.fancontrol.watch.watchkitapp.complication'
+assert info['CFBundleIdentifier']=='dev.fancontrol.watch.watchkitapp.activepanel'
 assert info['CFBundleVersion']==os.environ.get('BUILD_NUMBER','2')
 assert info['NSExtension']['NSExtensionPointIdentifier']=='com.apple.widgetkit-extension'
 Path('build/ExportOptions.plist').write_bytes(plistlib.dumps({
@@ -52,7 +52,7 @@ with tempfile.TemporaryDirectory() as temp:
     watch=next((app/'Watch').glob('*.app'))
     for bundle in [app,watch,*list((watch/'PlugIns').glob('*.appex'))]:
         info=plistlib.loads((bundle/'Info.plist').read_bytes())
-        assert info['CFBundleIdentifier'] in ['dev.fancontrol.watch','dev.fancontrol.watch.watchkitapp','dev.fancontrol.watch.watchkitapp.complication']
+        assert info['CFBundleIdentifier'] in ['dev.fancontrol.watch','dev.fancontrol.watch.watchkitapp','dev.fancontrol.watch.watchkitapp.activepanel']
         assert info['CFBundlePackageType']==('XPC!' if bundle.suffix=='.appex' else 'APPL')
         signature=subprocess.run(['codesign','-d','--verbose=4',str(bundle)],capture_output=True,text=True,check=True).stderr
         assert 'Identifier='+info['CFBundleIdentifier']+'\n' in signature, 'Signature identifier mismatch'

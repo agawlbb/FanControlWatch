@@ -20,7 +20,7 @@ targets:
     sources: [Complication]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.fancontrol.watch.watchkitapp.complication
+        PRODUCT_BUNDLE_IDENTIFIER: dev.fancontrol.watch.watchkitapp.activepanel
         SKIP_INSTALL: YES
         GENERATE_INFOPLIST_FILE: NO
         APPLICATION_EXTENSION_API_ONLY: YES

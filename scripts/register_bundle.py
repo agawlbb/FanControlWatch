@@ -44,7 +44,7 @@ def request(path, body=None):
         print(json.dumps({"status":error.code, "errors":[{k:v for k,v in item.items() if k in ("code","title","detail")} for item in result.get("errors",[])]}))
         raise SystemExit(1) from None
 
-identifier = "dev.fancontrol.watch.watchkitapp.complication"
+identifier = "dev.fancontrol.watch.watchkitapp.activepanel"
 result = request("bundleIds?"+urllib.parse.urlencode({"filter[identifier]":identifier}))
 if not result["data"]:
     result = request("bundleIds", {"data":{"type":"bundleIds", "attributes":{"identifier":identifier,"name":"Fan Control Active Panel Complication","platform":"IOS"}}})
