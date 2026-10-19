@@ -174,7 +174,10 @@ import FanControlCore
 
         }
     }
-    func cancel() { command?.cancel(); if busy { feedback?.phase = .unconfirmed; message = "Not confirmed" } }
+    func cancel() {
+        draft?.cancel(); speedDraft = nil; command?.cancel()
+        if busy { feedback?.phase = .unconfirmed; message = "Not confirmed" }
+    }
     func paired(_ value: Connection) { connection = value; enter() }
     func forget() { leave(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
 }
