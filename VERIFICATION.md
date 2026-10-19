@@ -24,3 +24,7 @@ Required physical Apple Watch checks:
 - Wrist-down, always-on display, connection changes, offline operation, small/large watch sizes, VoiceOver and larger text.
 
 Automated checks do not establish actual watchOS rendering, local network permission behavior, music playback or physical vehicle behavior. Android `gradlew.bat validateDebug` (APK/unit tests/lint) also passes for the unchanged Android 1.5.3 baseline.
+
+October 19, 2026: release source `9a8c925197eeafbf5b17e90479de02a2536c6ef0` passed all 16 Swift core tests, signed device archive, App Store export, strict signature/team/profile checks for the container, watch app and complication, and upload on GitHub macOS runners. Release run: https://github.com/agawlbb/coffey-table-recipes/actions/runs/39329001573. HA 0.5.0 passed 169 unit/integration tests, Python compilation and the isolated real HA 2026.10.1 runtime check: https://github.com/agawlbb/FanControlHA/actions/runs/39329061312. Live HA restarted successfully on 0.5.0 with no Fan Control system-log errors; its saved watch name was repaired through the official options flow.
+
+Simulator inspection confirms watchOS continues displaying the system clock despite `.persistentSystemOverlays(.hidden)`. This part of the requested panel cleanup remains a platform limitation; no private API is used to suppress it.

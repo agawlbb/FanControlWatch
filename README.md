@@ -4,13 +4,13 @@ Independent watchOS 10+ SwiftUI client for the [Fan Control HA integration](http
 
 Licensed **AGPL-3.0-only**, matching the Android and Home Assistant projects. See LICENSE and NOTICE.md.
 
-Encrypted RSA-2048/OAEP-SHA256 pairing and AES-256-GCM requests use the existing integration protocol. Credentials stay in this watch's unlocked, device-only Keychain. The watch displays only HA's active device or panel. Devices: fans with six exact speeds, lights, switches, input booleans, scripts and scenes. Panels: Work Morning, Exercise and Driving. Driving alone displays its configured identification stripe.
+Encrypted RSA-2048/OAEP-SHA256 pairing and AES-256-GCM requests use the existing integration protocol. Credentials stay in this watch's unlocked, device-only Keychain. The watch displays only HA's active device or panel. Devices: fans with six exact speeds, lights, switches, input booleans, scripts and scenes. Panels: Fan Control, Work Morning, Exercise and Driving. Driving alone displays its configured identification stripe.
 
 Requested outcomes appear immediately in gray. Confirmed HA evidence is separate from projection. Cover and script commands are dispatched at most once; errors remain unconfirmed. Exercise Stop uses a stable operation ID and requires HA operation completion. Vehicle wake occurs only after visible settled entry. Foreground commands cancel when leaving; this release does not claim Wear OS's foreground-service behavior while screen-off. Spotify handoff and HA music acknowledgment do not prove playback.
 
 ## Pairing
 
-Enter your HA local or HTTPS address on the watch, choose Pair, then approve the eight-digit code in HA's native Fan Control configuration. Compare every fingerprint character. Configure devices, panels and active selection exclusively in HA. Remote addresses require HTTPS. This initial port uses address entry; Bonjour discovery and Smart Stack widgets are not implemented.
+Enter your HA local or HTTPS address on the watch, choose Pair, then approve the eight-digit code in HA's native Fan Control configuration. Compare every fingerprint character. Configure devices, panels and active selection exclusively in HA. Remote addresses require HTTPS. This client uses address entry; Bonjour discovery is not implemented. The Active Panel complication is available in compatible watch-face slots.
 
 ## Builds
 
@@ -34,6 +34,8 @@ The distribution container is `dev.fancontrol.watch`; the independently running 
 
 
 Version 0.1.0 build 1 was compiled, signed, verified and accepted by App Store Connect on October 18, 2026 using GitHub macOS runners. Release source: `233cac2b77bff814ae8bbb6ebce928ffa42b1b14`. The [successful release run](https://github.com/agawlbb/coffey-table-recipes/actions/runs/39161828320) reused credentials within the existing trusted signing repository; no credentials were copied here. All 13 core tests passed. Physical Apple Watch and Home Assistant/vehicle checks in VERIFICATION.md remain outstanding.
+
+Version 0.2.0 build 2 was signed, verified and uploaded on October 19, 2026. Release source: `9a8c925197eeafbf5b17e90479de02a2536c6ef0`, tagged `v0.2.0`; [successful macOS release](https://github.com/agawlbb/coffey-table-recipes/actions/runs/39329001573). All 16 core tests passed. The embedded Active Panel complication is `dev.fancontrol.watch.watchkitapp.activepanel`. The same existing signing repository and credentials were reused. [ISSUES.md](ISSUES.md) records every reported issue, its resolution and the remaining system-clock limitation.
 
 Build 1 has completed processing and is assigned to the manual Internal group. The account holder's tester invitation is available through TestFlight. Initial release limitations and physical checks are listed in BETA.md and VERIFICATION.md.
 
