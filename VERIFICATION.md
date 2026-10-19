@@ -1,6 +1,6 @@
 # Verification and device checks
 
-Apple port version 0.2.0 (build 2), based on Android 1.5.3; HA integration 0.5.0.
+Apple port version 0.2.0 (build 3), based on Android 1.5.3; HA integration 0.5.0.
 
 GitHub macOS CI compiles SwiftUI for watchsimulator and archives the watch-only distribution container. Core unit tests cover power/speed evidence, unavailable and mismatched responses, cover presentation assumptions, full Exercise Stop operation completion, pending/failure colors, request identity, encrypted response authentication, local/remote URL policy, safe read fallback, and no command fallback/replay after ambiguous transport failures.
 
@@ -28,3 +28,5 @@ Automated checks do not establish actual watchOS rendering, local network permis
 October 19, 2026: release source `9a8c925197eeafbf5b17e90479de02a2536c6ef0` passed all 16 Swift core tests, signed device archive, App Store export, strict signature/team/profile checks for the container, watch app and complication, and upload on GitHub macOS runners. Release run: https://github.com/agawlbb/coffey-table-recipes/actions/runs/39329001573. HA 0.5.0 passed 169 unit/integration tests, Python compilation and the isolated real HA 2026.10.1 runtime check: https://github.com/agawlbb/FanControlHA/actions/runs/39329061312. Live HA restarted successfully on 0.5.0 with no Fan Control system-log errors; its saved watch name was repaired through the official options flow.
 
 Simulator inspection confirms watchOS continues displaying the system clock despite `.persistentSystemOverlays(.hidden)`. This part of the requested panel cleanup remains a platform limitation; no private API is used to suppress it.
+
+Replacement build 3 (`7d9bd4ec8a7d3adcd2086b0889f0aef65247c575`) refreshes HA selection before visible entry wake, and suppresses that wake when configuration/state refresh failed or the generation changed. All 16 tests, signed archive/export/profile verification, and upload passed: https://github.com/agawlbb/coffey-table-recipes/actions/runs/39330236334. Android `validateDebug` passed again after this final lifecycle correction.

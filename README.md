@@ -16,7 +16,7 @@ Enter your HA local or HTTPS address on the watch, choose Pair, then approve the
 
 GitHub Actions runs `swift test`, generates the Xcode project using XcodeGen, compiles for the watch simulator and archives for physical watchOS using GitHub macOS runners. Unsigned CI artifacts are for inspection. The signed release is distributed through TestFlight.
 
-Version: 0.2.0 (build 2). Apple team: FKR675M7PM. Bundle ID: dev.fancontrol.watch.
+Version: 0.2.0 (build 3). Apple team: FKR675M7PM. Bundle ID: dev.fancontrol.watch.
 
 Version 0.2.0 requires HA integration 0.5.0 for fan panels and fan-free initial setup. Pair first with a watch name and address, then use Manage watch panels to add Fan Control, Exercise, Driving or Work Morning. Spotify player selection requires a playlist; both can be left blank. Only Driving asks for an identification color. Existing device configurations remain supported.
 
@@ -36,6 +36,8 @@ The distribution container is `dev.fancontrol.watch`; the independently running 
 Version 0.1.0 build 1 was compiled, signed, verified and accepted by App Store Connect on October 18, 2026 using GitHub macOS runners. Release source: `233cac2b77bff814ae8bbb6ebce928ffa42b1b14`. The [successful release run](https://github.com/agawlbb/coffey-table-recipes/actions/runs/39161828320) reused credentials within the existing trusted signing repository; no credentials were copied here. All 13 core tests passed. Physical Apple Watch and Home Assistant/vehicle checks in VERIFICATION.md remain outstanding.
 
 Version 0.2.0 build 2 was signed, verified and uploaded on October 19, 2026. Release source: `9a8c925197eeafbf5b17e90479de02a2536c6ef0`, tagged `v0.2.0`; [successful macOS release](https://github.com/agawlbb/coffey-table-recipes/actions/runs/39329001573). All 16 core tests passed. The embedded Active Panel complication is `dev.fancontrol.watch.watchkitapp.activepanel`. The same existing signing repository and credentials were reused. [ISSUES.md](ISSUES.md) records every reported issue, its resolution and the remaining system-clock limitation.
+
+Build 3 supersedes build 2 and refreshes HA's current selection before the settled-entry vehicle wake, so a complication tap does not wake the previously cached car before configuration is refreshed. Source: `7d9bd4ec8a7d3adcd2086b0889f0aef65247c575`, tag `v0.2.0-build3`; [successful macOS release and upload](https://github.com/agawlbb/coffey-table-recipes/actions/runs/39330236334). All 16 core tests and signed archive/export/profile checks passed again.
 
 Build 1 has completed processing and is assigned to the manual Internal group. The account holder's tester invitation is available through TestFlight. Initial release limitations and physical checks are listed in BETA.md and VERIFICATION.md.
 
