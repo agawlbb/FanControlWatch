@@ -5,6 +5,7 @@ BUILD_NUMBER="${BUILD_NUMBER:-1}"
 [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]{0,8}$ ]]
 [[ "$IOS_TEAM_ID" == FKR675M7PM ]]
 auth=(-authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+python3 scripts/register_bundle.py
 swift test
 xcodegen generate
 mkdir -p build
