@@ -1,5 +1,20 @@
 # Apple Watch beta issue batch — 0.2.0
 
+## Follow-up batch — 0.3.0 (4)
+
+- Removed Cancel request and routine connection/music/request/failure captions.
+- Confirmed states use teal, including OFF/CLOSED; requested/unconfirmed states
+  remain gray. One-shot script, scene and horn dispatch never confirms completion.
+- Driving climate is an absolute ON/OFF toggle with immediate gray projection.
+- Driving uses a 2×2 garage/trunk/climate/horn layout. HA 0.5.1 adds an optional,
+  explicitly configured horn role and capability-checked climate OFF.
+- Horizontal swipes visit approved controls only for the current session. Leaving
+  and reopening restores HA's selection. Swipe selection is never persisted or
+  sent to HA; offscreen/prefetched panels never wake a vehicle.
+- Pairing instructions and state labels remain; redundant operation prose does not.
+
+Build and physical-watch verification are recorded in VERIFICATION.md.
+
 | Report | Resolution |
 | --- | --- |
 | Optional Spotify player silently requires a playlist | HA 0.5.0 labels the dependency, explains how to skip Spotify, returns a playlist-specific error, and preserves submitted fields. |

@@ -30,7 +30,7 @@ jobs:
         with:
           name: FanControlWatch-unsigned
           path: |
-            build/watch-first-launch.png
+            build/watch-*.png
             build/FanControlWatch.xcarchive
             build/Build/Products/Debug-watchsimulator/FanControlWatch.app
           retention-days: 7

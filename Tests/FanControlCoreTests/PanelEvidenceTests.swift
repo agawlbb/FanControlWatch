@@ -29,5 +29,12 @@ final class PanelEvidenceTests: XCTestCase {
         XCTAssertFalse(Evidence.matches("start_exercise",["vehicle_ready":true,"steps":[["status":"requested"]]],panel:p))
         XCTAssertTrue(Evidence.matches("start_exercise",["vehicle_ready":true,"locked":true],panel:p))
     }
+    func testDrivingOffRequiresMatchingObservationAndHornNeverConfirmsFromDispatch() throws {
+        let p = try panel("driving")
+        XCTAssertFalse(Evidence.matches("climate_off", ["vehicle_ready":true,"climate_available":true,"climate_on":true], panel:p))
+        XCTAssertTrue(Evidence.matches("climate_off", ["vehicle_ready":true,"climate_available":true,"climate_on":false], panel:p))
+        XCTAssertFalse(Evidence.matches("climate_off", ["vehicle_ready":true,"climate_available":false,"climate_on":false], panel:p))
+        XCTAssertFalse(Evidence.matches("honk", ["vehicle_ready":true,"honk_available":true,"accepted":true], panel:p))
+    }
 }
 

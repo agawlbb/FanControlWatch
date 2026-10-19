@@ -1,5 +1,17 @@
 # Watch command feedback
 
+## Apple Watch interaction update (October 19, 2026)
+
+The user's current instructions supersede the older HA-only navigation and
+verbose feedback rules below: swipe horizontally through approved panels/devices
+for the foreground session only. Never persist that choice or change HA's
+selection. A new foreground entry restores HA's selection. Only a displayed,
+settled vehicle panel may wake. All confirmed states, including OFF and CLOSED,
+use teal; pending, failed, unavailable and dispatch-only outcomes stay gray.
+Do not display command status prose, Spotify evidence captions or Cancel request.
+Keep the evidence internally without claiming completion. Driving has a 2×2 grid
+for garage, trunk, climate toggle and the HA-configured one-shot horn button.
+
 This is a required interaction rule for every current and future watch command,
 on the main tile, separate Exercise tile, full-screen device/panel pages, and
 any new watch screen or control.

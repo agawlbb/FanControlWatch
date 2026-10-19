@@ -22,6 +22,7 @@ public struct Panel: Codable, Equatable, Sendable {
     public let lock_entity: String?
     public let garage_entity: String?
     public let trunk_entity: String?
+    public let horn_entity: String?
     public let color: [Int]?
     public var vehicle: Bool { !(wake_entity ?? "").isEmpty }
 }
@@ -118,6 +119,7 @@ extension Panel {
             guard entity(fan_entity, domains: "fan") else { throw ControlError.invalidConfiguration }
         case "driving":
             guard entity(garage_entity,domains:"cover"), entity(trunk_entity,domains:"cover"), garage_entity != trunk_entity, entity(climate_entity,domains:"climate"), vehicle else { throw ControlError.invalidConfiguration }
+            if let horn_entity { guard entity(horn_entity, domains:"button"), horn_entity != wake_entity else { throw ControlError.invalidConfiguration } }
         case "exercise":
             guard entity(lock_entity,domains:"lock"), entity(climate_entity,domains:"climate"), vehicle else { throw ControlError.invalidConfiguration }
         case "work_morning":

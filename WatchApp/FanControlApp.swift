@@ -19,7 +19,8 @@ import FanControlCore
     private var draft: Task<Void, Never>?
     private var generation = UUID()
     private var visible = false
-    var device: Device? { connection?.active }
+    @Published private var sessionTarget: String?
+    var device: Device? { connection?.devices.first { $0.entity == (sessionTarget ?? connection?.entity) } }
     var busy: Bool { feedback?.phase == .pending }
     var canAdjustSpeed: Bool { stateFresh && device?.domain == "fan" && (!busy || feedback?.command == "turn_on") && ["on", "off"].contains(observed["state"] as? String ?? "") }
     func leave() {
@@ -27,8 +28,18 @@ import FanControlCore
         if feedback?.phase == .pending { feedback?.phase = .unconfirmed; message = "Not confirmed" }
         stateFresh = false
     }
-    func enter() {
+    func enter(resetSelection: Bool = true) {
         leave(); visible = true
+        if resetSelection { sessionTarget = nil; observed = [:]; feedback = nil }
+        #if DEBUG
+        if let preview = ControlPreview.snapshot() {
+            connection = preview.0; observed = preview.1; stateFresh = true
+            if ProcessInfo.processInfo.arguments.contains("--preview-pending") {
+                feedback = Feedback(target: preview.0.identity, command: "climate_off", label: "Climate OFF")
+            }
+            return
+        }
+        #endif
         guard let connection else { return }
         client = Integration(connection)
         let ticket = generation
@@ -48,6 +59,13 @@ import FanControlCore
             }
         }
     }
+    func swipe(_ direction: Int) {
+        guard let c = connection, let current = device,
+              let index = c.devices.firstIndex(of: current), c.devices.count > 1 else { return }
+        let next = (index + direction + c.devices.count) % c.devices.count
+        leave(); sessionTarget = c.devices[next].entity; observed = [:]; feedback = nil
+        enter(resetSelection: false)
+    }
     private func panelBody(_ p: Panel, command: String? = nil) -> [String: Any] {
         var body: [String: Any] = ["action": command == nil ? "panel_state" : "panel_command", "panel_id": p.id]
         if let command { body["command"] = command; body["panel_config"] = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) }
@@ -65,9 +83,11 @@ import FanControlCore
             let next = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: complete)).validated()
             guard ticket == generation, !Task.isCancelled, !busy else { return }
             if next != old {
-                try Vault.save(next); connection = next; observed = [:]; feedback = nil; enter(); return
+                try Vault.save(next); connection = next; observed = [:]; feedback = nil
+                if !next.devices.contains(where: { $0.entity == sessionTarget }) { sessionTarget = nil }
+                enter(resetSelection: false); return
             }
-            guard let d = old.active else { observed = [:]; return }
+            guard let d = device else { observed = [:]; return }
             let state = try await client.request(stateBody(d))
             guard ticket == generation, !Task.isCancelled, !busy else { return }
             observed = state; stateFresh = true; message = ""
@@ -100,7 +120,7 @@ import FanControlCore
         }
     }
     func send(_ action: String, label: String) {
-        guard !busy, stateFresh, visible, let c = connection, let d = c.active, let client else { return }
+        guard !busy, stateFresh, visible, let c = connection, let d = device, let client else { return }
         draft?.cancel(); speedDraft = nil
         let requested = RequestedPresentation.label(command: action, original: label)
         let f = Feedback(target: c.identity, command: action, label: requested)
@@ -141,7 +161,8 @@ import FanControlCore
                     if let p = d.panel, p.type != "fan" {
                         let ready = !p.vehicle || state["vehicle_ready"] as? Bool == true || action.hasPrefix("garage_")
                         if action.hasPrefix("garage_") || action.hasPrefix("trunk_") { available = ready && state[action + "_available"] as? Bool == true }
-                        else if action.hasPrefix("climate_") { available = ready && state["climate_available"] as? Bool == true }
+                        else if action.hasPrefix("climate_") { available = ready && state["climate_available"] as? Bool == true && (action != "climate_off" || p.type != "driving" || state["climate_off_available"] as? Bool == true) }
+                        else if action == "honk" { available = ready && state["honk_available"] as? Bool == true }
                         else { available = ready && state[action == "leave" ? "script_available" : action == "start_exercise" ? "start_available" : "stop_available"] as? Bool == true }
                     } else { available = ["on", "off"].contains(state["state"] as? String ?? "") || ["script", "scene"].contains(d.domain) && !["unknown", "unavailable", ""].contains(state["state"] as? String ?? "") }
                     if available && (!sent || action == "stop_exercise") {
@@ -150,11 +171,11 @@ import FanControlCore
                         catch {
                             try Task.checkCancellation()
                             if case ControlError.rejected = error { throw error }
-                            if action == "activate" || action == "leave" { throw error }
+                            if action == "activate" || action == "leave" || action == "honk" { throw error }
                             // Delivery may have happened. Poll evidence without replaying the command.
                             state = [:]
                         }
-                        if action == "activate" || action == "leave" {
+                        if action == "activate" || action == "leave" || action == "honk" {
                             guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                             feedback?.phase = .accepted; message = "Request accepted"; return
                         }

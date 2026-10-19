@@ -14,9 +14,6 @@ struct ControlsView: View {
                         Rectangle().fill(Color(red: Double(rgb[0])/255, green: Double(rgb[1])/255, blue: Double(rgb[2])/255)).frame(height: 5).accessibilityHidden(true)
                     }
                     if let p = d.panel, p.type != "fan" { panel(p) } else { device(d) }
-                    if model.message == "Connection interrupted" { Text(model.message).font(.caption2).foregroundStyle(.gray) }
-                    if !model.musicEvidence.isEmpty { Text(model.musicEvidence).font(.caption2).foregroundStyle(.gray) }
-                    if model.busy { Button("Cancel request") { model.cancel() } }
                 } else if model.connection != nil {
                     Text("Set up a panel in Home Assistant").font(.headline)
                     Text("Fan Control → Configure → Manage watch panels. Select this watch, then add or activate a panel.").font(.caption)
@@ -29,6 +26,10 @@ struct ControlsView: View {
             }.padding(.horizontal, 5)
         }
         .persistentSystemOverlays(.hidden)
+        .simultaneousGesture(DragGesture(minimumDistance: 35).onEnded { value in
+            guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+            model.swipe(value.translation.width < 0 ? 1 : -1)
+        })
         .contextMenu { Button("Connection settings") { setup = true } }
         .onOpenURL { url in
             if url.scheme == "fancontrol", url.host == "active" { model.enter() }
@@ -43,9 +44,9 @@ struct ControlsView: View {
         let applies = model.feedback?.command == action
         let feedback = applies ? model.feedback : nil
         let gray = !model.stateFresh || (feedback?.gray ?? (!known || model.busy))
-        let shown = feedback.map { $0.label + ($0.phase == .unconfirmed ? "\nNot confirmed" : "") } ?? label
+        let shown = feedback?.label ?? label
         return Button { model.send(action, label: label) } label: {
-            Text(shown).frame(maxWidth: .infinity).foregroundStyle(gray ? Color.gray : (selected || feedback != nil ? Color.mint : Color.white))
+            Text(shown).frame(maxWidth: .infinity, minHeight: 40).foregroundStyle(gray ? Color.gray : Color.mint)
         }
         .tint(gray ? Color.gray.opacity(0.25) : Color.mint.opacity(0.18))
         .disabled(model.busy || !enabled || !model.stateFresh)
@@ -54,7 +55,7 @@ struct ControlsView: View {
         let state = model.observed["state"] as? String
         let available = state == "on" || state == "off"
         if ["script", "scene"].contains(d.domain) {
-            control("activate", "Run", known: true, enabled: state != nil && state != "unavailable" && state != "unknown")
+            control("activate", "Run", known: false, enabled: state != nil && state != "unavailable" && state != "unknown")
         } else if ["fan", "light", "switch", "input_boolean"].contains(d.domain) {
             // Label projects the absolute next state immediately on the originating control.
             let pending = model.feedback?.phase != .confirmed && (model.feedback?.command == "turn_on" || model.feedback?.command == "turn_off")
@@ -67,28 +68,38 @@ struct ControlsView: View {
                 HStack {
                     Button("−") { model.adjust(-1) }.disabled(!model.canAdjustSpeed || percentage == nil)
                     Text(model.speedDraft.map(String.init) ?? (model.feedback?.command.hasPrefix("speed") == true ? model.feedback!.label : speed.map(String.init) ?? "?"))
-                        .foregroundStyle(!model.stateFresh || model.speedDraft != nil || model.feedback?.command.hasPrefix("speed") == true && model.feedback!.gray ? Color.gray : Color.white)
+                        .foregroundStyle(!model.stateFresh || percentage == nil || model.speedDraft != nil || model.feedback?.command.hasPrefix("speed") == true && model.feedback!.gray ? Color.gray : Color.mint)
                     Button("+") { model.adjust(1) }.disabled(!model.canAdjustSpeed || percentage == nil)
                 }
+                .tint(.mint)
             }
         } else { Text("Controls unavailable") }
     }
     @ViewBuilder private func panel(_ p: Panel) -> some View {
         if p.type == "driving" {
-            cover("garage", "Garage"); cover("trunk", "Trunk")
-            control("climate_on", "Climate ON", known: model.observed["climate_available"] as? Bool == true, selected: model.observed["climate_on"] as? Bool == true)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                cover("garage", "Garage")
+                cover("trunk", "Trunk")
+                climate(p)
+                control("honk", "Honk Horn", known: false, enabled: model.observed["honk_available"] as? Bool == true)
+            }
         } else if p.type == "exercise" {
-            control("start_exercise", "Start exercise", known: model.observed["start_available"] as? Bool == true)
-            control("stop_exercise", "Stop exercise", known: model.observed["stop_available"] as? Bool == true)
+            control("start_exercise", "Start exercise", known: model.observed["start_available"] as? Bool == true && model.observed["locked"] as? Bool == true, enabled: model.observed["start_available"] as? Bool == true)
+            control("stop_exercise", "Stop exercise", known: false, enabled: model.observed["stop_available"] as? Bool == true)
         } else {
             let battery = model.observed["battery"] as? Double
             Text(battery.map { String(format: "%.0f%%", $0) } ?? "?%")
-            let on = model.observed["climate_on"] as? Bool == true
-            let pending = model.feedback?.phase != .confirmed && model.feedback?.command.hasPrefix("climate_") == true
-            let action = pending ? model.feedback!.command : on ? "climate_off" : "climate_on"
-            control(action, "\(p.climate_label ?? "Climate") \(on ? "ON" : "OFF")", known: model.observed["climate_available"] as? Bool == true)
-            control("leave", p.script_label ?? "Leave for work", known: model.observed["script_available"] as? Bool == true)
+            climate(p)
+            control("leave", p.script_label ?? "Leave for work", known: false, enabled: model.observed["script_available"] as? Bool == true)
         }
+    }
+    private func climate(_ p: Panel) -> some View {
+        let on = model.observed["climate_on"] as? Bool == true
+        let pending = model.feedback?.phase != .confirmed && model.feedback?.command.hasPrefix("climate_") == true
+        let action = pending ? model.feedback!.command : on ? "climate_off" : "climate_on"
+        let available = model.observed["climate_available"] as? Bool == true &&
+            (!on || p.type != "driving" || model.observed["climate_off_available"] as? Bool == true)
+        return control(action, "\(p.climate_label ?? "Climate")\n\(on ? "ON" : "OFF")", known: available, enabled: available)
     }
     private func cover(_ role: String, _ title: String) -> some View {
         let observed = model.observed[role + "_state"] as? String
