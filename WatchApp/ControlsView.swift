@@ -13,12 +13,13 @@ struct ControlsView: View {
                         let rgb = p.color ?? [92, 225, 193]
                         Rectangle().fill(Color(red: Double(rgb[0])/255, green: Double(rgb[1])/255, blue: Double(rgb[2])/255)).frame(height: 5).accessibilityHidden(true)
                     }
-                    Text(d.title).font(.headline)
-                    if let p = d.panel { panel(p) } else { device(d) }
-                    if !model.message.isEmpty { Text(model.message).font(.caption2).foregroundStyle(.gray) }
+                    if let p = d.panel, p.type != "fan" { panel(p) } else { device(d) }
+                    if model.message == "Connection interrupted" { Text(model.message).font(.caption2).foregroundStyle(.gray) }
                     if !model.musicEvidence.isEmpty { Text(model.musicEvidence).font(.caption2).foregroundStyle(.gray) }
                     if model.busy { Button("Cancel request") { model.cancel() } }
-                    Button("Connection") { setup = true }.font(.caption)
+                } else if model.connection != nil {
+                    Text("Add a panel in Home Assistant").font(.headline)
+                    Text("Fan Control → Configure → Manage watch panels. Select this watch, then add any panel.").font(.caption)
                 } else {
                     Image(systemName: "fan.fill").font(.largeTitle).foregroundStyle(.mint)
                     Text("Fan Control").font(.headline)
@@ -26,6 +27,11 @@ struct ControlsView: View {
                     Button("Pair watch") { setup = true }
                 }
             }.padding(.horizontal, 5)
+        }
+        .persistentSystemOverlays(.hidden)
+        .contextMenu { Button("Connection settings") { setup = true } }
+        .onOpenURL { url in
+            if url.scheme == "fancontrol", url.host == "active" { model.enter() }
         }
         .sheet(isPresented: $setup, onDismiss: { model.enter() }) { SetupView(model: model) }
         .onAppear { model.enter() }
@@ -36,13 +42,13 @@ struct ControlsView: View {
     private func control(_ action: String, _ label: String, known: Bool = true, selected: Bool = false, enabled: Bool = true) -> some View {
         let applies = model.feedback?.command == action
         let feedback = applies ? model.feedback : nil
-        let gray = feedback?.gray ?? (!known || model.busy)
+        let gray = !model.stateFresh || (feedback?.gray ?? (!known || model.busy))
         let shown = feedback.map { $0.label + ($0.phase == .unconfirmed ? "\nNot confirmed" : "") } ?? label
         return Button { model.send(action, label: label) } label: {
             Text(shown).frame(maxWidth: .infinity).foregroundStyle(gray ? Color.gray : (selected || feedback != nil ? Color.mint : Color.white))
         }
         .tint(gray ? Color.gray.opacity(0.25) : Color.mint.opacity(0.18))
-        .disabled(model.busy || !enabled)
+        .disabled(model.busy || !enabled || !model.stateFresh)
     }
     @ViewBuilder private func device(_ d: Device) -> some View {
         let state = model.observed["state"] as? String
@@ -59,10 +65,10 @@ struct ControlsView: View {
                 let percentage = (model.observed["attributes"] as? [String: Any])?["percentage"] as? Int
                 let speed = percentage.flatMap { value in Evidence.percentages.firstIndex(where: { $0 >= value }).map { $0 + 1 } }
                 HStack {
-                    Button("−") { model.adjust(-1) }.disabled(model.busy || !available || percentage == nil)
-                    Text(model.speedDraft.map { "\($0) requested" } ?? (model.feedback?.command.hasPrefix("speed") == true ? model.feedback!.label : speed.map(String.init) ?? "?"))
-                        .foregroundStyle(model.speedDraft != nil || model.feedback?.command.hasPrefix("speed") == true && model.feedback!.gray ? Color.gray : Color.white)
-                    Button("+") { model.adjust(1) }.disabled(model.busy || !available || percentage == nil)
+                    Button("−") { model.adjust(-1) }.disabled(!model.canAdjustSpeed || percentage == nil)
+                    Text(model.speedDraft.map(String.init) ?? (model.feedback?.command.hasPrefix("speed") == true ? model.feedback!.label : speed.map(String.init) ?? "?"))
+                        .foregroundStyle(!model.stateFresh || model.speedDraft != nil || model.feedback?.command.hasPrefix("speed") == true && model.feedback!.gray ? Color.gray : Color.white)
+                    Button("+") { model.adjust(1) }.disabled(!model.canAdjustSpeed || percentage == nil)
                 }
             }
         } else { Text("Controls unavailable") }

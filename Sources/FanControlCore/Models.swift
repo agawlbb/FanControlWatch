@@ -5,14 +5,15 @@ public struct Device: Codable, Equatable, Sendable {
     public let entity: String
     public let title: String
     public let panel: Panel?
-    public var domain: String { String(entity.split(separator: ".").first ?? "") }
+    public var domain: String { panel?.type == "fan" ? "fan" : String(entity.split(separator: ".").first ?? "") }
 }
 public struct Panel: Codable, Equatable, Sendable {
     public let id: String
     public let type: String
     public let name: String
     public let battery_entity: String?
-    public let climate_entity: String
+    public let climate_entity: String?
+    public let fan_entity: String?
     public let script_entity: String?
     public let climate_label: String?
     public let script_label: String?
@@ -35,8 +36,8 @@ public struct Connection: Codable, Equatable, Sendable {
     public func validated() throws -> Self {
         guard watch_id.range(of: "^[a-f0-9]{32}$", options: .regularExpression) != nil,
               token.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
-              !devices.isEmpty, devices.count <= 16, Set(devices.map(\.entity)).count == devices.count,
-              active != nil else { throw ControlError.invalidConfiguration }
+              devices.count <= 16, Set(devices.map(\.entity)).count == devices.count,
+              active != nil || entity.isEmpty else { throw ControlError.invalidConfiguration }
         _ = try Self.address(url)
         if let remote = remote_url, !remote.isEmpty { _ = try Self.address(remote, external: true) }
         for device in devices {
@@ -44,7 +45,7 @@ public struct Connection: Codable, Equatable, Sendable {
                   !device.title.isEmpty, device.title.count <= 80 else { throw ControlError.invalidConfiguration }
             if let p = device.panel {
                 try p.validateRoles()
-                guard device.entity == "panel." + p.id, ["work_morning", "exercise", "driving"].contains(p.type),
+                guard device.entity == "panel." + p.id, ["fan", "work_morning", "exercise", "driving"].contains(p.type),
                       p.color == nil || (p.color!.count == 3 && p.color!.allSatisfy { (0...255).contains($0) }) else { throw ControlError.invalidConfiguration }
             }
         }
@@ -74,12 +75,12 @@ public struct Feedback: Equatable, Sendable {
     public init(target: String, command: String, label: String) {
         id = UUID(); self.target = target; self.command = command; self.label = label; phase = .pending
     }
-    public var gray: Bool { phase != .confirmed && phase != .accepted }
+    public var gray: Bool { phase != .confirmed }
 }
 public enum Evidence {
     public static let percentages = [16, 33, 50, 66, 83, 100]
     public static func matches(_ command: String, _ state: [String: Any], panel: Panel?) -> Bool {
-        if let panel {
+        if let panel, panel.type != "fan" {
             if panel.vehicle && command != "stop_exercise" && command != "garage_open" && command != "garage_close" && state["vehicle_ready"] as? Bool != true { return false }
             switch command {
             case "climate_on", "climate_off": return state["climate_available"] as? Bool == true && state["climate_on"] as? Bool == (command == "climate_on")
@@ -113,6 +114,8 @@ extension Panel {
             guard entity(wake_entity,domains:"button"), entity(awake_entity,domains:"binary_sensor") else { throw ControlError.invalidConfiguration }
         }
         switch type {
+        case "fan":
+            guard entity(fan_entity, domains: "fan") else { throw ControlError.invalidConfiguration }
         case "driving":
             guard entity(garage_entity,domains:"cover"), entity(trunk_entity,domains:"cover"), garage_entity != trunk_entity, entity(climate_entity,domains:"climate"), vehicle else { throw ControlError.invalidConfiguration }
         case "exercise":

@@ -8,6 +8,7 @@ import FanControlCore
 @MainActor final class WatchModel: ObservableObject {
     @Published var connection = Vault.load()
     @Published var observed: [String: Any] = [:]
+    @Published var stateFresh = false
     @Published var feedback: Feedback?
     @Published var message = ""
     @Published var speedDraft: Int?
@@ -20,10 +21,11 @@ import FanControlCore
     private var visible = false
     var device: Device? { connection?.active }
     var busy: Bool { feedback?.phase == .pending }
+    var canAdjustSpeed: Bool { stateFresh && device?.domain == "fan" && (!busy || feedback?.command == "turn_on") && ["on", "off"].contains(observed["state"] as? String ?? "") }
     func leave() {
         visible = false; generation = UUID(); work?.cancel(); command?.cancel(); draft?.cancel(); speedDraft = nil
         if feedback?.phase == .pending { feedback?.phase = .unconfirmed; message = "Not confirmed" }
-        observed = [:]
+        stateFresh = false
     }
     func enter() {
         leave(); visible = true
@@ -53,39 +55,49 @@ import FanControlCore
         return ["action": "state", "entity": d.entity]
     }
     private func refresh(_ ticket: UUID) async {
-        guard let old = connection, let client, let d = old.active else { return }
+        guard let old = connection, let client else { return }
         do {
-            let config = try await client.request(["action": "config"])
+            let config = try await client.request(["action": "config", "platform": "watch_os"])
             var complete = config; complete["token"] = old.token; complete["watch_id"] = old.watch_id
             let next = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: complete)).validated()
             guard ticket == generation, !Task.isCancelled, !busy else { return }
             if next != old {
                 try Vault.save(next); connection = next; observed = [:]; feedback = nil; enter(); return
             }
+            guard let d = old.active else { observed = [:]; return }
             let state = try await client.request(stateBody(d))
             guard ticket == generation, !Task.isCancelled, !busy else { return }
-            observed = state; message = ""
-            if feedback?.phase == .unconfirmed { feedback = nil }
+            observed = state; stateFresh = true; message = ""
+            if !busy && speedDraft == nil { feedback = nil }
         } catch {
             guard ticket == generation, !Task.isCancelled else { return }
-            observed = [:]; message = "State unknown · Refresh available"
+            // A failed read is not an HA observation of unknown/off. Retain only
+            // this visible target's last observation, gray and noninteractive.
+            stateFresh = false; message = "Connection interrupted"
             if case ControlError.rejected(let status) = error, [401, 403].contains(status), connection == old { forget(); message = "Watch access revoked. Pair again." }
         }
     }
     func adjust(_ delta: Int) {
-        guard !busy, device?.domain == "fan", observed["state"] as? String == "on" || observed["state"] as? String == "off" else { return }
+        guard canAdjustSpeed else { return }
         let percentage = (observed["attributes"] as? [String: Any])?["percentage"] as? Int ?? 0
         let current = Evidence.percentages.firstIndex(where: { $0 >= percentage }).map { $0 + 1 } ?? 6
         speedDraft = min(6, max(1, (speedDraft ?? current) + delta))
         draft?.cancel()
+        let ticket = generation
         draft = Task {
             do { try await Task.sleep(nanoseconds: 1_000_000_000) } catch { return }
+            // Draft changes are allowed during ON confirmation; delivery stays
+            // serialized and never clears or inverts the original power intent.
+            while busy {
+                do { try await Task.sleep(nanoseconds: 100_000_000) } catch { return }
+            }
+            guard ticket == generation, visible, !Task.isCancelled, stateFresh else { return }
             guard let speed = speedDraft else { return }; speedDraft = nil
             send("speed\(speed)", label: "Speed \(speed)")
         }
     }
     func send(_ action: String, label: String) {
-        guard !busy, visible, let c = connection, let d = c.active, let client else { return }
+        guard !busy, stateFresh, visible, let c = connection, let d = c.active, let client else { return }
         draft?.cancel(); speedDraft = nil
         let requested = RequestedPresentation.label(command: action, original: label)
         let f = Feedback(target: c.identity, command: action, label: requested)
@@ -115,7 +127,7 @@ import FanControlCore
                     try Task.checkCancellation()
                     guard ticket == generation, connection == c, visible else { throw CancellationError() }
                     // Revalidate the exact configuration before dispatch; never redirect an old tap.
-                    let config = try await client.request(["action": "config"])
+                    let config = try await client.request(["action": "config", "platform": "watch_os"])
                     var full = config; full["token"] = c.token; full["watch_id"] = c.watch_id
                     let live = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: full)).validated()
                     guard live == c else { throw ControlError.invalidConfiguration }
@@ -123,7 +135,7 @@ import FanControlCore
                     var body = d.panel.map { panelBody($0, command: action) } ?? ["action": "command", "entity": d.entity, "command": action]
                     if action == "stop_exercise" { body["operation_id"] = operationID; body["issued_at_ms"] = issued }
                     let available: Bool
-                    if let p = d.panel {
+                    if let p = d.panel, p.type != "fan" {
                         let ready = !p.vehicle || state["vehicle_ready"] as? Bool == true || action.hasPrefix("garage_")
                         if action.hasPrefix("garage_") || action.hasPrefix("trunk_") { available = ready && state[action + "_available"] as? Bool == true }
                         else if action.hasPrefix("climate_") { available = ready && state["climate_available"] as? Bool == true }
@@ -152,7 +164,7 @@ import FanControlCore
                     }
                     guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                     if sent && Evidence.matches(action, state, panel: d.panel) {
-                        completed = true; observed = state; feedback?.phase = .confirmed; message = d.panel == nil ? "Confirmed by Home Assistant" : "HA confirmed · physical state not independently verified"; return
+                        completed = true; observed = state; stateFresh = true; feedback?.phase = .confirmed; message = ""; return
                     }
                     try await Task.sleep(nanoseconds: 700_000_000)
                 }
@@ -164,7 +176,7 @@ import FanControlCore
     }
     func cancel() { command?.cancel(); if busy { feedback?.phase = .unconfirmed; message = "Not confirmed" } }
     func paired(_ value: Connection) { connection = value; enter() }
-    func forget() { leave(); Vault.clear(); connection = nil; feedback = nil }
+    func forget() { leave(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
 }
 
 

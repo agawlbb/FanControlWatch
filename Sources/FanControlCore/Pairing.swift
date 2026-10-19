@@ -19,7 +19,7 @@ public final class Pairing {
         let algorithm = Data([0x30,0x0d,0x06,0x09,0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x01,0x05,0x00])
         let spki = der(0x30, algorithm + der(0x03, Data([0]) + pkcs1))
         let fingerprint = Data(SHA256.hash(data: spki)).hex.prefix(12).uppercased()
-        let created = try await http.post(address, path: "api/fan_control/pair/create", body: ["public_key": spki.base64EncodedString()])
+        let created = try await http.post(address, path: "api/fan_control/pair/create", body: ["public_key": spki.base64EncodedString(), "platform": "watch_os"])
         guard let code = created["code"] as? String, code.range(of: "^[0-9]{8}$", options: .regularExpression) != nil,
               let token = created["device_token"] as? String, token.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
               created["fingerprint"] as? String == fingerprint, let expiry = created["expires_at"] as? Double,
