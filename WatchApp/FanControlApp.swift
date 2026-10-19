@@ -33,13 +33,16 @@ import FanControlCore
         client = Integration(connection)
         let ticket = generation
         work = Task {
-            // Wake only after the selected page has remained visible and settled.
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            guard !Task.isCancelled, ticket == generation, visible else { return }
-            if let p = device?.panel, p.vehicle {
-                _ = try? await client?.request(panelBody(p, command: "wake"))
-            }
+            // Resolve HA's current selection before the entry wake. A saved
+            // connection may still name a different car after a watch-face tap.
+            await refresh(ticket)
+            do { try await Task.sleep(nanoseconds: 400_000_000) } catch { return }
+            var wakeAttempted = false
             while !Task.isCancelled && ticket == generation && visible {
+                if stateFresh, !wakeAttempted, let p = device?.panel, p.vehicle {
+                    wakeAttempted = true
+                    _ = try? await client?.request(panelBody(p, command: "wake"))
+                }
                 if !busy && speedDraft == nil { await refresh(ticket) }
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
             }
