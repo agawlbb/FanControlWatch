@@ -109,7 +109,7 @@ import FanControlCore
         }
         command = Task {
             let deadline = Date().addingTimeInterval(60)
-            let operationID = UUID().uuidString.lowercased().replacingOccurrences(of: "-", with: "")
+            let operationID = UUID().uuidString.lowercased()
             let issued = Int(Date().timeIntervalSince1970 * 1000)
             var sent = false
             var musicSent = false

@@ -16,7 +16,13 @@ Enter your HA local or HTTPS address on the watch, choose Pair, then approve the
 
 GitHub Actions runs `swift test`, generates the Xcode project using XcodeGen, compiles for the watch simulator and archives for physical watchOS using GitHub macOS runners. Unsigned CI artifacts are for inspection. The signed release is distributed through TestFlight.
 
-Version: 0.1.0 (build 1). Apple team: FKR675M7PM. Bundle ID: dev.fancontrol.watch.
+Version: 0.2.0 (build 2). Apple team: FKR675M7PM. Bundle ID: dev.fancontrol.watch.
+
+Version 0.2.0 requires HA integration 0.5.0 for fan panels and fan-free initial setup. Pair first with a watch name and address, then use Manage watch panels to add Fan Control, Exercise, Driving or Work Morning. Spotify player selection requires a playlist; both can be left blank. Only Driving asks for an identification color. Existing device configurations remain supported.
+
+Panels omit the title and Connection button. Long-press the panel to open Connection settings. The app requests hidden system overlays; watchOS controls the final visibility of its own clock. Gray outcomes and confirmed colors replace routine request/confirmation captions. A failed refresh retains only the same target's last observation, gray and disabled until a fresh read. Speed adjustments can be drafted while ON is pending and are delivered serially after its one-second quiet window.
+
+Add the **Active Panel** complication in the watch face editor. Circular, corner, inline and rectangular slots are supported where the face permits them. Tapping opens the app's current HA-selected panel and refreshes configuration; the complication stores no credentials or stale panel selection.
 
 Physical checks remain: local networking and pairing, revoked access, all configured device/panel actions, cancellation and target changes, wrist-down lifecycle, cover assumptions and delayed state, Spotify handoff/output, and actual vehicle behavior. Automated tests do not verify watch rendering or physical vehicle state.
 
