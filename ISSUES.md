@@ -1,6 +1,6 @@
 # Apple Watch beta issue batch — 0.2.0
 
-## Follow-up batch — 0.3.0 (4)
+## Follow-up batch — 0.3.0 (5)
 
 - Removed Cancel request and routine connection/music/request/failure captions.
 - Confirmed states use teal, including OFF/CLOSED; requested/unconfirmed states

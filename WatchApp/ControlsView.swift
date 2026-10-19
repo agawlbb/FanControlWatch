@@ -43,7 +43,7 @@ struct ControlsView: View {
     private func control(_ action: String, _ label: String, known: Bool = true, selected: Bool = false, enabled: Bool = true) -> some View {
         let applies = model.feedback?.command == action
         let feedback = applies ? model.feedback : nil
-        let gray = !model.stateFresh || (feedback?.gray ?? (!known || model.busy))
+        let gray = !model.stateFresh || (feedback?.gray ?? !known)
         let shown = feedback?.label ?? label
         return Button { model.send(action, label: label) } label: {
             Text(shown).frame(maxWidth: .infinity, minHeight: 40).foregroundStyle(gray ? Color.gray : Color.mint)
