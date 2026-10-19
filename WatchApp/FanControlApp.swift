@@ -105,7 +105,7 @@ import FanControlCore
         let ticket = generation
         if action == "start_exercise", let url = URL(string: "spotify:") {
             WKExtension.shared().openSystemURL(url)
-            musicEvidence = "Spotify launch requested; playback unknown"
+            musicEvidence = "Spotify playback unknown"
         }
         command = Task {
             let deadline = Date().addingTimeInterval(60)
@@ -159,7 +159,7 @@ import FanControlCore
                     if action == "start_exercise" && !musicSent && sent {
                         musicSent = true
                         // Music has its own one-shot evidence and cannot confirm vehicle state.
-                        do { _ = try await client.request(panelBody(d.panel!, command: "start_music")); musicEvidence = "Music request accepted; playback unknown" }
+                        do { _ = try await client.request(panelBody(d.panel!, command: "start_music")); musicEvidence = "Music dispatch accepted · playback unknown" }
                         catch { musicEvidence = "Music not confirmed" }
                     }
                     guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }

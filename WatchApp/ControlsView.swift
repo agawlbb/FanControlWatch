@@ -18,8 +18,8 @@ struct ControlsView: View {
                     if !model.musicEvidence.isEmpty { Text(model.musicEvidence).font(.caption2).foregroundStyle(.gray) }
                     if model.busy { Button("Cancel request") { model.cancel() } }
                 } else if model.connection != nil {
-                    Text("Add a panel in Home Assistant").font(.headline)
-                    Text("Fan Control → Configure → Manage watch panels. Select this watch, then add any panel.").font(.caption)
+                    Text("Set up a panel in Home Assistant").font(.headline)
+                    Text("Fan Control → Configure → Manage watch panels. Select this watch, then add or activate a panel.").font(.caption)
                 } else {
                     Image(systemName: "fan.fill").font(.largeTitle).foregroundStyle(.mint)
                     Text("Fan Control").font(.headline)
