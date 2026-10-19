@@ -4,23 +4,23 @@ Independent watchOS 10+ SwiftUI client for the [Fan Control HA integration](http
 
 Licensed **AGPL-3.0-only**, matching the Android and Home Assistant projects. See LICENSE and NOTICE.md.
 
-Encrypted RSA-2048/OAEP-SHA256 pairing and AES-256-GCM requests use the existing integration protocol. Credentials stay in this watch's unlocked, device-only Keychain. The watch displays only HA's active device or panel. Devices: fans with six exact speeds, lights, switches, input booleans, scripts and scenes. Panels: Fan Control, Work Morning, Exercise and Driving. Driving alone displays its configured identification stripe.
+Encrypted RSA-2048/OAEP-SHA256 pairing and AES-256-GCM requests use the existing integration protocol. Credentials stay in this watch's unlocked, device-only Keychain. The watch opens HA's active device or panel. Horizontal swipes temporarily visit other approved controls; reopening restores HA's selection. Devices: fans with six exact speeds, lights, switches, input booleans, scripts and scenes. Panels: Fan Control, Work Morning, Exercise and Driving. Driving alone displays its configured identification stripe.
 
 Requested outcomes appear immediately in gray. Confirmed HA evidence is separate from projection. Cover and script commands are dispatched at most once; errors remain unconfirmed. Exercise Stop uses a stable operation ID and requires HA operation completion. Vehicle wake occurs only after visible settled entry. Foreground commands cancel when leaving; this release does not claim Wear OS's foreground-service behavior while screen-off. Spotify handoff and HA music acknowledgment do not prove playback.
 
 ## Pairing
 
-Enter your HA local or HTTPS address on the watch, choose Pair, then approve the eight-digit code in HA's native Fan Control configuration. Compare every fingerprint character. Configure devices, panels and active selection exclusively in HA. Remote addresses require HTTPS. This client uses address entry; Bonjour discovery is not implemented. The Active Panel complication is available in compatible watch-face slots.
+Enter your HA local or HTTPS address on the watch, choose Pair, then approve the eight-digit code in HA's native Fan Control configuration. Compare every fingerprint character. Configure devices, panels and the default active selection in HA. Remote addresses require HTTPS. This client uses address entry; Bonjour discovery is not implemented. The Active Panel complication is available in compatible watch-face slots.
 
 ## Builds
 
 GitHub Actions runs `swift test`, generates the Xcode project using XcodeGen, compiles for the watch simulator and archives for physical watchOS using GitHub macOS runners. Unsigned CI artifacts are for inspection. The signed release is distributed through TestFlight.
 
-Version: 0.2.0 (build 3). Apple team: FKR675M7PM. Bundle ID: dev.fancontrol.watch.
+Version: 0.3.0 (build 6). Apple team: FKR675M7PM. Bundle ID: dev.fancontrol.watch.
 
 Version 0.2.0 requires HA integration 0.5.0 for fan panels and fan-free initial setup. Pair first with a watch name and address, then use Manage watch panels to add Fan Control, Exercise, Driving or Work Morning. Spotify player selection requires a playlist; both can be left blank. Only Driving asks for an identification color. Existing device configurations remain supported.
 
-Panels omit the title and Connection button. Long-press the panel to open Connection settings. The app requests hidden system overlays; watchOS controls the final visibility of its own clock. Gray outcomes and confirmed colors replace routine request/confirmation captions. A failed refresh retains only the same target's last observation, gray and disabled until a fresh read. Speed adjustments can be drafted while ON is pending and are delivered serially after its one-second quiet window.
+Panels omit the title and Connection button. Long-press the panel to open Connection settings. The app requests hidden system overlays; watchOS controls the final visibility of its own clock. Gray requested outcomes and teal confirmed states (including OFF/CLOSED) replace routine status captions. No Cancel request or Spotify/dispatch status text is shown. Driving uses a 2×2 garage, trunk, climate toggle and horn grid; HA 0.5.1 supplies climate OFF and the optional horn role. One-shot acknowledgments stay gray. A failed refresh retains only the same target's last observation, gray and disabled until a fresh read. Speed adjustments can be drafted while ON is pending and are delivered serially after its one-second quiet window.
 
 Add the **Active Panel** complication in the watch face editor. Circular, corner, inline and rectangular slots are supported where the face permits them. Tapping opens the app's current HA-selected panel and refreshes configuration; the complication stores no credentials or stale panel selection.
 

@@ -10,3 +10,9 @@ Address entry, Android-style screen-off foreground delivery and native Spotify m
 
 Source and license: https://github.com/agawlbb/FanControlWatch (AGPL-3.0-only).
 Privacy: https://github.com/agawlbb/FanControlWatch/blob/main/PRIVACY.md
+
+## 0.3.0 (6)
+
+Use horizontal swipes for temporary panel/device selection; leaving and reopening returns to HA's selection. Driving has a 2×2 garage, trunk, climate ON/OFF and horn grid. Confirmed ON/OFF/open/closed states use teal; commanded outcomes remain gray until matching evidence. Other confirmed controls stay teal while disabled by a pending command. Battery and speed readings follow the same observed-state colors. Routine operation, Spotify and failure captions and Cancel request were removed. Pairing instructions and essential control labels remain. Horn dispatch stays gray because HA acknowledgment does not establish that it sounded.
+
+Install HA 0.5.1 for Driving climate OFF and the optional horn role. Both existing car panels on Joes Ultra 4 have their own horn roles configured. Physical-watch checks remain: swipe/vertical-scroll interaction, reopening selection, delayed confirmation, climate OFF, one-shot horn behavior, wrist-down cancellation and Spotify handoff. Automated tests/simulator images do not verify vehicle behavior.
