@@ -41,3 +41,5 @@ Build 3 supersedes build 2 and refreshes HA's current selection before the settl
 
 Build 1 has completed processing and is assigned to the manual Internal group. The account holder's tester invitation is available through TestFlight. Initial release limitations and physical checks are listed in BETA.md and VERIFICATION.md.
 
+
+Version **0.3.0 build 6** is processed and Testing in the existing Internal TestFlight group. Exact source: 85331dd5b196b709d1095ec43a00f8d5ed88c596, tag v0.3.0. The macOS release/upload run is https://github.com/agawlbb/coffey-table-recipes/actions/runs/39341077559; 17 core tests, signed archive/export and embedded profile/signature checks passed. HA 0.5.1 is deployed with both car horn roles configured. See ISSUES.md and VERIFICATION.md for changes, simulator evidence and remaining hardware checks.
