@@ -9,7 +9,7 @@ struct ControlsView: View {
         Group {
           if !model.showingSettings, model.device?.panel?.type == "exercise" {
             GeometryReader { geometry in
-                VStack(spacing: 6) {
+                VStack(spacing: 4) {
                     actionControl("start_exercise", "Start exercise", compact: true)
                     ExercisePlaybackView().frame(maxWidth: .infinity, maxHeight: .infinity)
                     actionControl("stop_exercise", "Stop exercise", compact: true)
@@ -119,7 +119,7 @@ struct ControlsView: View {
         let gray = ActionReceipts.isGray(receipt)
         let button = Button { model.send(action, label: label) } label: {
             Text(receipt == nil ? label : "Activated")
-                .frame(maxWidth: .infinity, minHeight: compact ? 44 : 40)
+                .frame(maxWidth: .infinity, minHeight: compact ? 36 : 40)
                 .foregroundStyle(gray ? Color.gray : Color.mint)
         }
         .tint(gray ? Color.gray.opacity(0.25) : Color.mint.opacity(0.18))

@@ -217,7 +217,7 @@ import FanControlCore
 struct ExercisePlaybackView: View {
     @ObservedObject private var player = ExercisePlayer.shared
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             if player.beganPlayback && !player.waiting {
                 HStack(spacing: 2) {
                     Button { player.skip(-1) } label: { Image(systemName: "backward.end.fill") }.accessibilityLabel("Previous track")
@@ -263,7 +263,7 @@ private struct WatchVolume: WKInterfaceObjectRepresentable {
 
 private struct PlaybackButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.frame(maxWidth: .infinity, minHeight: 40)
+        configuration.label.frame(maxWidth: .infinity, minHeight: 28)
             .foregroundStyle(.mint)
             .background(Color.mint.opacity(configuration.isPressed ? 0.3 : 0.18), in: RoundedRectangle(cornerRadius: 15))
     }
