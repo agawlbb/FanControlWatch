@@ -217,14 +217,14 @@ import FanControlCore
 struct ExercisePlaybackView: View {
     @ObservedObject private var player = ExercisePlayer.shared
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 8) {
             if player.beganPlayback && !player.waiting {
                 HStack(spacing: 2) {
                     Button { player.skip(-1) } label: { Image(systemName: "backward.end.fill") }.accessibilityLabel("Previous track")
                     Button { player.toggle() } label: { Image(systemName: player.playing ? "pause.fill" : "play.fill") }.accessibilityLabel(player.playing ? "Pause" : "Play")
                     Button { player.skip(1) } label: { Image(systemName: "forward.end.fill") }.accessibilityLabel("Next track")
-                }.tint(.mint).controlSize(.small)
-                WatchVolume().frame(height: 28)
+                }.buttonStyle(PlaybackButtonStyle())
+                WatchVolume().frame(height: 44)
             } else if player.waiting {
                 Text(player.status).font(.caption2).foregroundStyle(.gray)
                 Button("Use watch speaker") { player.useSpeaker() }
@@ -241,8 +241,30 @@ struct ExercisePlaybackView: View {
 // Native system volume, including Crown interaction; never simulate system
 // volume by changing the player's per-track gain.
 private struct WatchVolume: WKInterfaceObjectRepresentable {
+    @Environment(\.scenePhase) private var phase
+    final class Coordinator { var active = false }
+    func makeCoordinator() -> Coordinator { Coordinator() }
     func makeWKInterfaceObject(context: Context) -> WKInterfaceVolumeControl {
         WKInterfaceVolumeControl(origin: .local)
     }
-    func updateWKInterfaceObject(_ object: WKInterfaceVolumeControl, context: Context) {}
+    func updateWKInterfaceObject(_ object: WKInterfaceVolumeControl, context: Context) {
+        let active = phase == .active
+        guard context.coordinator.active != active else { return }
+        context.coordinator.active = active
+        if active {
+            let coordinator = context.coordinator
+            DispatchQueue.main.async { if coordinator.active { object.focus() } }
+        } else { object.resignFocus() }
+    }
+    static func dismantleWKInterfaceObject(_ object: WKInterfaceVolumeControl, coordinator: Coordinator) {
+        coordinator.active = false; object.resignFocus()
+    }
+}
+
+private struct PlaybackButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.frame(maxWidth: .infinity, minHeight: 40)
+            .foregroundStyle(.mint)
+            .background(Color.mint.opacity(configuration.isPressed ? 0.3 : 0.18), in: RoundedRectangle(cornerRadius: 15))
+    }
 }

@@ -1,8 +1,10 @@
 import SwiftUI
 import WatchKit
+import UserNotifications
 import FanControlCore
 
 @main struct FanControlApp: App {
+    init() { UNUserNotificationCenter.current().delegate = ExerciseAlerts.shared }
     var body: some Scene {
         WindowGroup { ControlsView() }
             .backgroundTask(.appRefresh(BackgroundRefresh.identifier)) { await BackgroundRefresh.run() }
@@ -94,7 +96,7 @@ import FanControlCore
     func swipe(_ direction: Int) {
         guard let c = connection else { return }
         let current: WatchPage = showingSettings ? .settings : .device(sessionTarget ?? c.entity)
-        let next = WatchPage.next(current, entities: c.devices.map(\.entity), direction: direction)
+        let next = WatchPage.next(current, entities: c.devices.map(\.entity), active: c.entity, direction: direction)
         leave(resetReceipts: false); observed = [:]; feedback = nil
         switch next {
         case .settings: showingSettings = true
@@ -183,6 +185,7 @@ import FanControlCore
             ExercisePlayer.shared.start(c, target: d)
         }
         if action == "stop_exercise" { ExercisePlayer.shared.stop() }
+        let exerciseAlert = ["start_exercise", "stop_exercise"].contains(action) ? ExerciseAlerts.shared.begin(target: c.watch_id + "|" + d.entity, action: action) : nil
         command = Task {
             let deadline = Date().addingTimeInterval(60)
             let operationID = UUID().uuidString.lowercased()
@@ -211,7 +214,8 @@ import FanControlCore
                     guard live == c else { throw ControlError.invalidConfiguration }
                     try Task.checkCancellation()
                     guard ticket == generation, feedback?.id == f.id else { return }
-                    var state = try await client.request(stateBody(d))
+                    var state: [String: Any] = [:]
+                    if action != "stop_exercise" { state = try await client.request(stateBody(d)) }
                     var body = d.panel.map { panelBody($0, command: action) } ?? ["action": "command", "entity": d.entity, "command": action]
                     if action == "start_exercise" || action == "stop_exercise" { body["music_mode"] = "local" }
                     if action == "start_exercise" || action == "stop_exercise" { body["operation_id"] = operationID; body["issued_at_ms"] = issued }
@@ -222,7 +226,8 @@ import FanControlCore
                         else if action.hasPrefix("climate_") { available = ready && state["climate_available"] as? Bool == true && (action != "climate_off" || p.type != "driving" || state["climate_off_available"] as? Bool == true) }
                         else if action == "honk" { available = ready && state["honk_available"] as? Bool == true }
                         else if action == "podcast" { available = state["podcast_available"] as? Bool == true }
-                        else { available = ready && state[action == "leave" ? "script_available" : action == "start_exercise" ? "start_available" : "stop_available"] as? Bool == true }
+                        else if action == "stop_exercise" { available = true }
+                        else { available = ready && state[action == "leave" ? "script_available" : "start_available"] as? Bool == true }
                     } else { available = ["on", "off"].contains(state["state"] as? String ?? "") || ["script", "scene"].contains(d.domain) && !["unknown", "unavailable", ""].contains(state["state"] as? String ?? "") }
                     try Task.checkCancellation()
                     guard ticket == generation, feedback?.id == f.id, connection == c else { return }
@@ -237,7 +242,7 @@ import FanControlCore
                             // Delivery may have happened. Poll evidence without replaying the command.
                             state = [:]
                         }
-                        if receiptAction && commandResponded {
+                        if receiptAction && commandResponded && (action != "start_exercise" || Evidence.matches(action, state, panel: d.panel)) {
                             guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                             if action == "stop_exercise", ["pending", "complete"].contains(state["operation_status"] as? String ?? "") {
                                 // HA owns bounded continuation once accepted, even though
@@ -251,6 +256,7 @@ import FanControlCore
                                 continue
                             }
                             receiptAccepted = true; actionReceipts.finish(f, accepted: true)
+                            if let exerciseAlert, Evidence.matches(action, state, panel: d.panel) { ExerciseAlerts.shared.confirm(exerciseAlert) }
                         }
                         if action == "activate" || action == "leave" || action == "honk" || action == "podcast" || action == "stop_exercise" && receiptAccepted {
                             guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
@@ -263,9 +269,10 @@ import FanControlCore
                     // ambiguous Start response, without treating a later state
                     // read as this tap's receipt. Stop keeps its existing stable
                     // operation-ID delivery retries until HA acknowledges it.
-                    if action == "start_exercise" && sent { throw ControlError.notConfirmed }
                     if sent && Evidence.matches(action, state, panel: d.panel) {
                         completed = true
+                        if receiptAction { actionReceipts.finish(f, accepted: true) }
+                        if let exerciseAlert { ExerciseAlerts.shared.confirm(exerciseAlert) }
                         ObservationCache.shared.save(state, connection: c, device: d)
                         observed = state; stateFresh = true; feedback?.phase = .confirmed; message = ""; return
                     }

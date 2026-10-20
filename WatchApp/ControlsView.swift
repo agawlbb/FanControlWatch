@@ -6,7 +6,19 @@ struct ControlsView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var setup = false
     var body: some View {
-        ScrollView {
+        Group {
+          if !model.showingSettings, model.device?.panel?.type == "exercise" {
+            GeometryReader { geometry in
+                VStack(spacing: 6) {
+                    actionControl("start_exercise", "Start exercise", compact: true)
+                    ExercisePlaybackView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                    actionControl("stop_exercise", "Stop exercise", compact: true)
+                }
+                .padding(.horizontal, 5)
+                .frame(width: geometry.size.width, height: geometry.size.height)
+            }
+          } else {
+           ScrollView {
             VStack(spacing: 10) {
                 if model.showingSettings {
                     SettingsPage(model: model, openConnection: { setup = true })
@@ -26,6 +38,8 @@ struct ControlsView: View {
                     Button("Pair watch") { setup = true }
                 }
             }.padding(.horizontal, 5)
+        }
+          }
         }
         .persistentSystemOverlays(.hidden)
         .simultaneousGesture(DragGesture(minimumDistance: 35).onEnded { value in
