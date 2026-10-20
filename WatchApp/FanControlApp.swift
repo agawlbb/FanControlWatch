@@ -186,15 +186,16 @@ import FanControlCore
                     } else { available = ["on", "off"].contains(state["state"] as? String ?? "") || ["script", "scene"].contains(d.domain) && !["unknown", "unavailable", ""].contains(state["state"] as? String ?? "") }
                     if available && (!sent || action == "stop_exercise") {
                         sent = true // Ambiguous responses must never replay one-shot actions.
-                        do { state = try await client.request(body) }
+                        var commandResponded = false
+                        do { state = try await client.request(body); commandResponded = true }
                         catch {
                             try Task.checkCancellation()
                             if case ControlError.rejected = error { throw error }
-                            if action == "activate" || receiptAction { throw error }
+                            if action == "activate" || action == "leave" || action == "honk" { throw error }
                             // Delivery may have happened. Poll evidence without replaying the command.
                             state = [:]
                         }
-                        if receiptAction {
+                        if receiptAction && commandResponded {
                             guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                             guard ActionReceipts.acknowledges(action, response: state) else { throw ControlError.notConfirmed }
                             receiptAccepted = true; actionReceipts.finish(f, accepted: true)
@@ -212,6 +213,11 @@ import FanControlCore
                     }
                     guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                     if receiptAccepted { feedback?.phase = .accepted; message = ""; return }
+                    // Preserve the separate one-shot music request after an
+                    // ambiguous Start response, without treating a later state
+                    // read as this tap's receipt. Stop keeps its existing stable
+                    // operation-ID delivery retries until HA acknowledges it.
+                    if action == "start_exercise" && sent { throw ControlError.notConfirmed }
                     if sent && Evidence.matches(action, state, panel: d.panel) {
                         completed = true; observed = state; stateFresh = true; feedback?.phase = .confirmed; message = ""; return
                     }

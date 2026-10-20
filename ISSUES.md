@@ -30,7 +30,7 @@ Build and physical-watch verification are recorded in VERIFICATION.md.
 
 Verification and remaining watch/car checks are in VERIFICATION.md. No automated test establishes physical device behavior.
 
-## Action receipts — 0.3.1 (7)
+## Action receipts — 0.3.1 (8)
 
 Only Leave for Work, Honk Horn, Start Exercise and Stop Exercise change:
 ready teal command name → gray Activated on tap → teal Activated after an
