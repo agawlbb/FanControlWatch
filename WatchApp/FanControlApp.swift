@@ -169,8 +169,7 @@ import FanControlCore
         feedback = f; message = "Requested"; musicEvidence = ""
         let ticket = generation
         if action == "start_exercise" {
-            let target = c.watch_id + "|" + d.entity + "|" + ((try? String(data: JSONEncoder().encode(d.panel), encoding: .utf8)) ?? "")
-            ExercisePlayer.shared.start(c, target: target)
+            ExercisePlayer.shared.start(c, target: d)
         }
         if action == "stop_exercise" { ExercisePlayer.shared.stop() }
         command = Task {

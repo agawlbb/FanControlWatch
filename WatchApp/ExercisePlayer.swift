@@ -18,7 +18,7 @@ import FanControlCore
     private var index = 0
     private var folder: URL?
     private var scope: String?
-    private var sessionTarget: String?
+    private var sessionTarget: Device?
     private var active = false
     private var wantsPlayback = false
     private var speakerChosen = false
@@ -30,11 +30,14 @@ import FanControlCore
     private let session = AVAudioSession.sharedInstance()
 
     private struct Library: Codable { let directory: String; let tracks: [ExerciseTrack] }
+    private var musicDirectory: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ExerciseMusic")
+    }
     private func root(_ c: Connection) -> URL {
         let key = c.url + "|" + (c.remote_url ?? "") + "|" + c.watch_id + "|" + c.token
         let digest = SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
-        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ExerciseMusic").appendingPathComponent(digest)
+        return musicDirectory.appendingPathComponent(digest)
     }
     override private init() {
         super.init()
@@ -58,7 +61,7 @@ import FanControlCore
         guard library.tracks.allSatisfy({ FileManager.default.fileExists(atPath: saved.appendingPathComponent($0.fileName).path) }) else { return }
         tracks = library.tracks; folder = saved
     }
-    func start(_ c: Connection, target: String) {
+    func start(_ c: Connection, target: Device) {
         guard !syncing else { status = "Finish music sync first"; return }
         load(c); stop(); sessionTarget = target; active = true; wantsPlayback = true
         guard !tracks.isEmpty else { status = "Sync music in Connection settings"; return }
@@ -67,19 +70,19 @@ import FanControlCore
     }
     func stopIfTargetChanged(_ c: Connection) {
         guard active, let sessionTarget else { return }
-        let targets = c.devices.filter { $0.panel?.type == "exercise" }.map { d in
-            c.watch_id + "|" + d.entity + "|" + ((try? String(data: JSONEncoder().encode(d.panel), encoding: .utf8)) ?? "")
-        }
-        if scope != root(c).path || !targets.contains(sessionTarget) { stop() }
+        // Compare typed configuration, not JSON text whose key order can vary.
+        if scope != root(c).path || !c.devices.contains(sessionTarget) { stop() }
     }
     func stop() {
-        activation = UUID(); active = false; wantsPlayback = false; speakerChosen = false
+        activation = UUID(); active = false; wantsPlayback = false; speakerChosen = false; sessionTarget = nil
         player?.stop(); player = nil; index = 0; playing = false; beganPlayback = false; waiting = false; status = ""
         try? session.setActive(false, options: .notifyOthersOnDeactivation)
     }
     func forget() {
         syncGeneration = UUID(); syncTask?.cancel(); syncTask = nil; syncing = false; stop()
-        if let scope { try? FileManager.default.removeItem(atPath: scope) }
+        // Delete persisted copies even if no library was loaded this launch.
+        try? FileManager.default.removeItem(at: musicDirectory)
+        UserDefaults.standard.removeObject(forKey: "exerciseHeadsetUID")
         scope = nil; tracks = []; folder = nil
     }
     func useSpeaker() {
