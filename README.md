@@ -10,7 +10,7 @@ Requested outcomes appear immediately in gray. Confirmed HA evidence is separate
 
 ## Pairing
 
-### Exercise local music — 0.5.0 source update
+### Exercise local music â€” 0.5.0 source update
 
 Exercise has Start at the top, playback or headset guidance in the middle, and
 Stop at the bottom. Start locks the configured car and independently starts the
@@ -23,7 +23,7 @@ Apple's local volume control appear. Select the volume control and turn the Crow
 Tracks play in filename order and repeat the list. No Spotify request is sent.
 
 Stop immediately stops audio and asks HA to unlock, enable climate and request
-63°F (converted to HA's climate units). Its gray Activated receipt turns teal only
+63Â°F (converted to HA's climate units). Its gray Activated receipt turns teal only
 after HA observes unlocked and climate on and acknowledges the temperature
 request. Temperature equality is deliberately ignored. Start turns teal after HA
 acknowledges its lock service call. Neither receipt independently proves physical
@@ -66,7 +66,7 @@ Version: 0.3.1 (build 8). Apple team: FKR675M7PM. Bundle ID: dev.fancontrol.watc
 
 Version 0.2.0 requires HA integration 0.5.0 for fan panels and fan-free initial setup. Pair first with a watch name and address, then use Manage watch panels to add Fan Control, Exercise, Driving or Work Morning. Spotify player selection requires a playlist; both can be left blank. Only Driving asks for an identification color. Existing device configurations remain supported.
 
-Panels omit the title and Connection button. Long-press the panel to open Connection settings. The app requests hidden system overlays; watchOS controls the final visibility of its own clock. Gray requested outcomes and teal confirmed states (including OFF/CLOSED) replace routine status captions. No Cancel request or Spotify/dispatch status text is shown. Driving uses a 2×2 garage, trunk, climate toggle and horn grid; HA 0.5.1 supplies climate OFF and the optional horn role. Panel actions use teal command names when ready, gray Activated after a tap, then teal Activated after HA accepts the command. This receipt stays for the displayed session; it does not claim physical completion. Generic script/scene Run feedback stays unchanged. A failed refresh retains only the same target's last observation, gray and disabled until a fresh read. Speed adjustments can be drafted while ON is pending and are delivered serially after its one-second quiet window.
+Panels omit the title and Connection button. Swipe horizontally to the separate Settings page for Connection settings and music sync. The app requests hidden system overlays; watchOS controls the final visibility of its own clock. Gray requested outcomes and teal confirmed states (including OFF/CLOSED) replace routine status captions. No Cancel request or Spotify/dispatch status text is shown. Driving uses a 2Ã—2 garage, trunk, climate toggle and horn grid; HA 0.5.1 supplies climate OFF and the optional horn role. Panel actions use teal command names when ready, gray Activated after a tap, then teal Activated after HA accepts the command. This receipt stays for the displayed session; it does not claim physical completion. Generic script/scene Run feedback stays unchanged. A failed refresh retains only the same target's last observation, gray and disabled until a fresh read. Speed adjustments can be drafted while ON is pending and are delivered serially after its one-second quiet window.
 
 Add the **Active Panel** complication in the watch face editor. Circular, corner, inline and rectangular slots are supported where the face permits them. Tapping opens the app's current HA-selected panel and refreshes configuration; the complication stores no credentials or stale panel selection.
 
@@ -111,3 +111,17 @@ in the source or build artifacts. Update through TestFlight, then open Connectio
 settings > Sync exercise music and keep the app open until the tracks are ready
 offline. Hardware playback, routing and physical vehicle checks remain in
 VERIFICATION.md. One-minute vehicle alerts are HA persistent notifications.
+
+Build **0.5.0 (11)** supersedes build 10 and is available in the existing Internal
+TestFlight group. Swipe left or right through the approved panels to the separate
+**Settings** page, then choose **Connection settings** or **Sync exercise music**.
+No settings control is added to the panels. The obsolete watchOS context menu is
+removed. Settings is local to this foreground session, sends no vehicle reads or
+wake, and a new app entry restores HA's selected panel. Source:
+`0ef70ae0b1ded5e5a6a96bc47b0dc7e5a6e0c256`. All 31 Swift tests, simulator
+captures and unsigned archive passed:
+https://github.com/agawlbb/FanControlWatch/actions/runs/39489915641.
+Signed release/upload:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/39490119699.
+Apple VALID / IN_BETA_TESTING / Internal confirmation:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/39490119809.

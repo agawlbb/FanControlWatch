@@ -22,7 +22,7 @@ Required physical Apple Watch checks:
 - Pair without a fan, retain watch name on rejected submission, verify Apple Watch device model, then add/select/edit/remove each panel in HA. Spotify player without playlist must produce a field-specific error without clearing inputs. Only Driving asks for a car color.
 - Open each supported complication family; verify the current HA-selected panel opens after selection changes and while previously unpaired. The complication must not send a command or store credentials.
 - Keep the fan panel visible during a dropped refresh and recovery; last observed value stays gray and disabled, not replaced with UNKNOWN. Actual HA unknown/unavailable remains unknown. Draft speed immediately after ON, repeatedly adjust within one second, and confirm serialized delivery; cancellation/target changes must discard old drafts.
-- Check uncluttered panels, hidden clock preference, long-press Connection settings, small/large watch sizes and accessibility.
+- Check uncluttered panels, hidden clock preference, separate swipeable Settings page, small/large watch sizes and accessibility.
 - Work Morning battery/climate/script configured by HA, with no identification stripe.
 - Exercise lock confirmation, stable Stop operation ID, pending/complete/failure/cancel outcomes and Spotify handoff. Music evidence remains separate from vehicle evidence.
 - Driving garage/trunk initial gray CLOSED and absolute first OPEN; late reads cannot invert; moving states remain gray; dispatch at most once; climate ON; configured stripe only on Driving.
@@ -149,3 +149,28 @@ notification at one minute for mismatch/offline; target change/revocation and
 Stop continuation/Driving selection. HA persistent notifications do not provide
 phone/watch push without separate notification routing. Automated checks do not
 verify actual watch rendering, audible playback or physical car behavior.
+
+## 0.5.0 (11): separate swipeable Settings page
+
+The deprecated context-menu route did not work on the user's watch. User chose
+a separate Settings page in the horizontal panel sequence, with Connection
+settings and Sync exercise music, instead of a button on each control panel.
+Settings remains reachable with one configured panel, wraps in both directions,
+and is never saved as HA's active selection. It stops visible-panel work and
+returns no device, so entry does not read/wake a car. Opening Connection settings
+and returning preserves the Settings page; a new foreground entry resets to HA.
+
+Source `0ef70ae0b1ded5e5a6a96bc47b0dc7e5a6e0c256`: 31 Swift tests passed,
+including three navigation tests for one/multiple/no configured panels. Simulator
+compilation/screenshots and unsigned archive passed; reviewed Settings and
+Exercise captures. Settings menu fits; Exercise retains its existing layout.
+CI: https://github.com/agawlbb/FanControlWatch/actions/runs/39489915641.
+Signed archive/export/signature/profile validation and upload passed:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/39490119699.
+Apple confirmed build 11 VALID, IN_BETA_TESTING in the existing Internal group:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/39490119809.
+
+HA 0.6.0 and the four private test tracks are unchanged. No vehicle command was
+sent for validation. Physical-watch checks: swipe from either direction to
+Settings, open/return from Connection settings, sync music to completion, confirm
+HA-selected entry after reopening, and verify the remaining audio/vehicle checks.
