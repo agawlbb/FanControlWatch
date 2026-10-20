@@ -16,3 +16,20 @@ Privacy: https://github.com/agawlbb/FanControlWatch/blob/main/PRIVACY.md
 Use horizontal swipes for temporary panel/device selection; leaving and reopening returns to HA's selection. Driving has a 2×2 garage, trunk, climate ON/OFF and horn grid. Confirmed ON/OFF/open/closed states use teal; commanded outcomes remain gray until matching evidence. Other confirmed controls stay teal while disabled by a pending command. Battery and speed readings follow the same observed-state colors. Routine operation, Spotify and failure captions and Cancel request were removed. Pairing instructions and essential control labels remain. Horn dispatch stays gray because HA acknowledgment does not establish that it sounded.
 
 Install HA 0.5.1 for Driving climate OFF and the optional horn role. Both existing car panels on Joes Ultra 4 have their own horn roles configured. Physical-watch checks remain: swipe/vertical-scroll interaction, reopening selection, delayed confirmation, climate OFF, one-shot horn behavior, wrist-down cancellation and Spotify handoff. Automated tests/simulator images do not verify vehicle behavior.
+
+## 0.3.1 (8) — panel action receipts
+
+Only Leave for Work, Honk Horn, Start Exercise and Stop Exercise change:
+teal command name when ready; gray Activated immediately on tap; teal Activated
+after an authenticated HA command acknowledgment. It stays for the foreground
+session, including ordinary refreshes and temporary panel swipes. Leaving resets
+it. Errors or missing acknowledgments stay gray. Repeated taps use independent
+receipts; an old callback cannot recolor a newer tap or another watch/panel.
+
+Receipt color means HA accepted the command, not that a vehicle operation, script
+or music playback completed. An acknowledged Stop leaves HA's continuation running;
+HA still selects Driving only after the required operation steps complete. Existing
+Stop delivery retries and the separate one-shot music request are preserved.
+The fan tile, six-speed control, and power/climate/cover toggles are unchanged.
+Works with the deployed HA 0.5.1. Remaining physical checks: actual receipt timing,
+retention/reset, retry after failure, Stop continuation and Spotify handoff.
