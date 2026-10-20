@@ -54,9 +54,12 @@ else:
 
 # Enable only the watch app's push capability before refreshing signing profiles.
 # This uses the existing CI Apple account; it does not create an APNs private key.
-result = request("bundleIds?"+urllib.parse.urlencode({"filter[identifier]":"dev.fancontrol.watch.watchkitapp"}))
-assert len(result["data"]) == 1, "Watch bundle ID missing"
-watch_bundle = result["data"][0]["id"]
+watch_identifier = "dev.fancontrol.watch.watchkitapp"
+result = request("bundleIds?"+urllib.parse.urlencode({"filter[identifier]":watch_identifier}))
+# Apple may include related identifiers; never enable a capability on a prefix match.
+matches = [item for item in result["data"] if item["attributes"]["identifier"] == watch_identifier]
+assert len(matches) == 1, "Exact watch bundle ID missing or ambiguous"
+watch_bundle = matches[0]["id"]
 capabilities = request("bundleIds/"+watch_bundle+"/bundleIdCapabilities")
 if not any(item["attributes"]["capabilityType"] == "PUSH_NOTIFICATIONS" for item in capabilities["data"]):
     request("bundleIdCapabilities", {"data":{"type":"bundleIdCapabilities",
