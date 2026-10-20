@@ -29,3 +29,14 @@ Build and physical-watch verification are recorded in VERIFICATION.md.
 | Select fan speed before ON is confirmed | Speed draft adjustment remains enabled during pending ON. The one-second quiet window is preserved and delivery is serialized behind power; cancellation and leaving discard queued speed. |
 
 Verification and remaining watch/car checks are in VERIFICATION.md. No automated test establishes physical device behavior.
+
+## Action receipts — 0.3.1 (7)
+
+Only Leave for Work, Honk Horn, Start Exercise and Stop Exercise change:
+ready teal command name → gray Activated on tap → teal Activated after an
+authenticated HA command acknowledgment. Accepted receipts stay visible through
+normal refreshes and temporary swipes during the foreground session; leaving
+resets them. Rejection, timeout and ambiguous transport failure remain gray.
+Receipt evidence does not populate observed state or claim physical completion.
+An accepted Stop leaves HA's existing continuation and completion-based Driving
+selection running. Fan tile, speed control, power/climate/cover toggles unchanged.

@@ -81,18 +81,29 @@ struct ControlsView: View {
                 cover("garage", "Garage")
                 cover("trunk", "Trunk")
                 climate(p)
-                control("honk", "Honk Horn", known: false, enabled: model.observed["honk_available"] as? Bool == true)
+                actionControl("honk", "Honk Horn", enabled: model.observed["honk_available"] as? Bool == true)
             }
         } else if p.type == "exercise" {
-            control("start_exercise", "Start exercise", known: model.observed["start_available"] as? Bool == true && model.observed["locked"] as? Bool == true, enabled: model.observed["start_available"] as? Bool == true)
-            control("stop_exercise", "Stop exercise", known: false, enabled: model.observed["stop_available"] as? Bool == true)
+            actionControl("start_exercise", "Start exercise", enabled: model.observed["start_available"] as? Bool == true)
+            actionControl("stop_exercise", "Stop exercise", enabled: model.observed["stop_available"] as? Bool == true)
         } else {
             let battery = model.observed["battery"] as? Double
             Text(battery.map { String(format: "%.0f%%", $0) } ?? "?%")
                 .foregroundStyle(model.stateFresh && battery != nil ? Color.mint : Color.gray)
             climate(p)
-            control("leave", p.script_label ?? "Leave for work", known: false, enabled: model.observed["script_available"] as? Bool == true)
+            actionControl("leave", p.script_label ?? "Leave for work", enabled: model.observed["script_available"] as? Bool == true)
         }
+    }
+    private func actionControl(_ action: String, _ label: String, enabled: Bool) -> some View {
+        let receipt = model.actionFeedback(action)
+        let gray = receipt.map { $0.phase != .accepted } ?? (!model.stateFresh || !enabled)
+        return Button { model.send(action, label: label) } label: {
+            Text(receipt == nil ? label : "Activated")
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .foregroundStyle(gray ? Color.gray : Color.mint)
+        }
+        .tint(gray ? Color.gray.opacity(0.25) : Color.mint.opacity(0.18))
+        .disabled(model.busy || !enabled || !model.stateFresh)
     }
     private func climate(_ p: Panel) -> some View {
         let on = model.observed["climate_on"] as? Bool == true

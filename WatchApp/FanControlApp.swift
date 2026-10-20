@@ -13,6 +13,7 @@ import FanControlCore
     @Published var message = ""
     @Published var speedDraft: Int?
     @Published var musicEvidence = ""
+    @Published private var actionReceipts = ActionReceipts()
     private var client: Integration?
     private var work: Task<Void, Never>?
     private var command: Task<Void, Never>?
@@ -23,19 +24,28 @@ import FanControlCore
     var device: Device? { connection?.devices.first { $0.entity == (sessionTarget ?? connection?.entity) } }
     var busy: Bool { feedback?.phase == .pending }
     var canAdjustSpeed: Bool { stateFresh && device?.domain == "fan" && (!busy || feedback?.command == "turn_on") && ["on", "off"].contains(observed["state"] as? String ?? "") }
-    func leave() {
+    func leave(resetReceipts: Bool = true) {
+        if resetReceipts { actionReceipts.clear() }
         visible = false; generation = UUID(); work?.cancel(); command?.cancel(); draft?.cancel(); speedDraft = nil
         if feedback?.phase == .pending { feedback?.phase = .unconfirmed; message = "Not confirmed" }
         stateFresh = false
     }
     func enter(resetSelection: Bool = true) {
-        leave(); visible = true
+        leave(resetReceipts: resetSelection); visible = true
         if resetSelection { sessionTarget = nil; observed = [:]; feedback = nil }
         #if DEBUG
         if let preview = ControlPreview.snapshot() {
             connection = preview.0; observed = preview.1; stateFresh = true
             if ProcessInfo.processInfo.arguments.contains("--preview-pending") {
                 feedback = Feedback(target: preview.0.identity, command: "climate_off", label: "Climate OFF")
+            }
+            let args = ProcessInfo.processInfo.arguments
+            if args.contains("--preview-action-pending") || args.contains("--preview-action-accepted") {
+                let action = args.contains("--preview-exercise") ? "start_exercise" : "honk"
+                let f = Feedback(target: preview.0.watch_id + "|panel.preview", command: action, label: "Activated")
+                actionReceipts.begin(f)
+                if args.contains("--preview-action-accepted") { actionReceipts.finish(f, accepted: true) }
+                else { feedback = f }
             }
             return
         }
@@ -63,7 +73,7 @@ import FanControlCore
         guard let c = connection, let current = device,
               let index = c.devices.firstIndex(of: current), c.devices.count > 1 else { return }
         let next = (index + direction + c.devices.count) % c.devices.count
-        leave(); sessionTarget = c.devices[next].entity; observed = [:]; feedback = nil
+        leave(resetReceipts: false); sessionTarget = c.devices[next].entity; observed = [:]; feedback = nil
         enter(resetSelection: false)
     }
     private func panelBody(_ p: Panel, command: String? = nil) -> [String: Any] {
@@ -83,6 +93,7 @@ import FanControlCore
             let next = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: complete)).validated()
             guard ticket == generation, !Task.isCancelled, !busy else { return }
             if next != old {
+                if next.devices != old.devices || next.watch_id != old.watch_id { actionReceipts.clear() }
                 try Vault.save(next); connection = next; observed = [:]; feedback = nil
                 if !next.devices.contains(where: { $0.entity == sessionTarget }) { sessionTarget = nil }
                 enter(resetSelection: false); return
@@ -99,6 +110,10 @@ import FanControlCore
             stateFresh = false; message = "Connection interrupted"
             if case ControlError.rejected(let status) = error, [401, 403].contains(status), connection == old { forget(); message = "Watch access revoked. Pair again." }
         }
+    }
+    func actionFeedback(_ action: String) -> Feedback? {
+        guard let c = connection, let d = device else { return nil }
+        return actionReceipts.feedback(target: c.watch_id + "|" + d.entity, command: action)
     }
     func adjust(_ delta: Int) {
         guard canAdjustSpeed else { return }
@@ -123,7 +138,9 @@ import FanControlCore
         guard !busy, stateFresh, visible, let c = connection, let d = device, let client else { return }
         draft?.cancel(); speedDraft = nil
         let requested = RequestedPresentation.label(command: action, original: label)
-        let f = Feedback(target: c.identity, command: action, label: requested)
+        let receiptAction = ActionReceipts.applies(action)
+        let f = Feedback(target: receiptAction ? c.watch_id + "|" + d.entity : c.identity, command: action, label: requested)
+        if receiptAction { actionReceipts.begin(f) }
         feedback = f; message = "Requested"; musicEvidence = ""
         let ticket = generation
         if action == "start_exercise", let url = URL(string: "spotify:") {
@@ -137,9 +154,11 @@ import FanControlCore
             var sent = false
             var musicSent = false
             var completed = false
+            var receiptAccepted = false
             defer {
                 if ticket == generation && feedback?.id == f.id && feedback?.phase == .pending { feedback?.phase = .unconfirmed; message = "Not confirmed" }
-                if action == "stop_exercise" && !completed {
+                if ticket == generation && receiptAction && !receiptAccepted { actionReceipts.finish(f, accepted: false) }
+                if action == "stop_exercise" && !completed && !receiptAccepted {
                     var cancel = panelBody(d.panel!, command: "cancel_stop"); cancel["operation_id"] = operationID
                     let cancellationBody = cancel
                     Task { _ = try? await client.request(cancellationBody) }
@@ -171,11 +190,16 @@ import FanControlCore
                         catch {
                             try Task.checkCancellation()
                             if case ControlError.rejected = error { throw error }
-                            if action == "activate" || action == "leave" || action == "honk" { throw error }
+                            if action == "activate" || receiptAction { throw error }
                             // Delivery may have happened. Poll evidence without replaying the command.
                             state = [:]
                         }
-                        if action == "activate" || action == "leave" || action == "honk" {
+                        if receiptAction {
+                            guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
+                            guard ActionReceipts.acknowledges(action, response: state) else { throw ControlError.notConfirmed }
+                            receiptAccepted = true; actionReceipts.finish(f, accepted: true)
+                        }
+                        if action == "activate" || action == "leave" || action == "honk" || action == "stop_exercise" && receiptAccepted {
                             guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                             feedback?.phase = .accepted; message = "Request accepted"; return
                         }
@@ -187,6 +211,7 @@ import FanControlCore
                         catch { musicEvidence = "Music not confirmed" }
                     }
                     guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
+                    if receiptAccepted { feedback?.phase = .accepted; message = ""; return }
                     if sent && Evidence.matches(action, state, panel: d.panel) {
                         completed = true; observed = state; stateFresh = true; feedback?.phase = .confirmed; message = ""; return
                     }

@@ -26,4 +26,12 @@ xcrun simctl terminate "$udid" dev.fancontrol.watch.watchkitapp
 xcrun simctl launch "$udid" dev.fancontrol.watch.watchkitapp --preview-driving --preview-pending
 sleep 2
 xcrun simctl io "$udid" screenshot build/watch-driving-pending.png
+for mode in driving exercise; do
+    for phase in pending accepted; do
+        xcrun simctl terminate "$udid" dev.fancontrol.watch.watchkitapp
+        xcrun simctl launch "$udid" dev.fancontrol.watch.watchkitapp "--preview-$mode" "--preview-action-$phase"
+        sleep 2
+        xcrun simctl io "$udid" screenshot "build/watch-$mode-action-$phase.png"
+    done
+done
 xcrun simctl shutdown "$udid"

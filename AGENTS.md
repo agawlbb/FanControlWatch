@@ -1,5 +1,16 @@
 # Watch command feedback
 
+## Action receipt update — 0.3.1
+
+Leave for Work, Honk Horn, Start Exercise and Stop Exercise use teal command
+names when ready, gray Activated on tap, then teal Activated after authenticated
+HA acceptance. Retain each receipt while actively displayed, through refreshes
+and temporary swipes; reset on leaving or configuration change. Acceptance is
+receipt evidence only, never physical completion. An acknowledged Stop must not
+cancel HA's continuation; Driving selection still requires operation completion.
+Stale callbacks and errors cannot acknowledge a tap. Do not modify toggles,
+the fan tile or fan speed for this update.
+
 ## Apple Watch interaction update (October 19, 2026)
 
 The user's current instructions supersede the older HA-only navigation and
