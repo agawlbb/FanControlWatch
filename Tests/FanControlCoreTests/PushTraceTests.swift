@@ -56,4 +56,17 @@ final class PushTraceTests: XCTestCase {
         trace.clear()
         XCTAssertTrue(trace.history(c).isEmpty)
     }
+    func testRevisionMetadataDoesNotInvalidateSameTargetButRolesAndCredentialsDo() throws {
+        let original = try connection()
+        var saved = original; saved.revision = nil
+        XCTAssertEqual(saved, original)
+        saved.revision = 8
+        XCTAssertEqual(saved, original)
+        saved.entity = ""
+        XCTAssertNotEqual(saved, original)
+        saved = original; saved.token = String(repeating: "c", count: 64)
+        XCTAssertNotEqual(saved, original)
+        saved = original; saved.devices = []
+        XCTAssertNotEqual(saved, original)
+    }
 }

@@ -151,6 +151,9 @@ import FanControlCore
                 // must never be treated as a new foreground vehicle entry.
                 enter(resetSelection: false, allowEntryWake: allowEntryWake); return
             }
+            if next.revision != old.revision {
+                try Vault.save(next); connection = next // Metadata refresh does not cancel an intent or restart entry.
+            }
             guard let d = device else { observed = [:]; return }
             let state = try await client.request(stateBody(d))
             guard ticket == generation, !Task.isCancelled, canRefresh else { return }
