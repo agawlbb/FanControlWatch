@@ -17,6 +17,10 @@ import FanControlCore
         Self.syncRegistration()
     }
 
+    func didFailToRegisterForRemoteNotificationsWithError(_ error: Error) {
+        PushDiagnostics.shared.record("registration_failed", connection: Vault.load())
+    }
+
     static func syncRegistration() {
         guard let token, let original = Vault.load(),
               let environment = Bundle.main.object(forInfoDictionaryKey: "FanControlAPNSEnvironment") as? String,
@@ -38,10 +42,18 @@ import FanControlCore
         guard let hint = userInfo["fancontrol"] as? [String: Any], hint["refresh"] as? Bool == true else {
             completionHandler(.noData); return
         }
+        // IDs are correlation hints only. Panel selection always comes from authenticated HA.
+        let updateID = (hint["update_id"] as? String).flatMap { UUID(uuidString: $0)?.uuidString.lowercased() }
+        let connection = Vault.load()
+        PushDiagnostics.shared.record("received", connection: connection, updateID: updateID, watchID: hint["watch_id"] as? String)
         Task {
             // An active UI already polls; this never navigates, confirms a
             // command, or launches the foreground entry/wake path.
-            completionHandler(await BackgroundRefresh.refresh() ? .newData : .noData)
+            let refreshed = await BackgroundRefresh.refresh(updateID: updateID)
+            if WKApplication.shared().applicationState == .active, let current = Vault.load() {
+                await PushDiagnostics.flush(current)
+            }
+            completionHandler(refreshed ? .newData : .noData)
         }
     }
 }

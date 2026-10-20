@@ -37,7 +37,13 @@ import FanControlCore
     // Action requests can start before the first observation. Keep entry reads
     // running so the settled visible-entry wake cannot be blocked by that tap.
     private var canRefresh: Bool { !busy || feedback.map { ActionReceipts.applies($0.command) } == true }
-    var canAdjustSpeed: Bool { stateFresh && device?.domain == "fan" && (!busy || feedback?.command == "turn_on") && ["on", "off"].contains(observed["state"] as? String ?? "") }
+    var canAdjustSpeed: Bool { visible && device?.domain == "fan" && (!busy || feedback?.command == "turn_on") }
+    var displayedSpeed: Int {
+        if let speedDraft { return speedDraft }
+        if let command = feedback?.command, command.hasPrefix("speed"), let value = Int(command.dropFirst(5)) { return value }
+        let percentage = (observed["attributes"] as? [String: Any])?["percentage"] as? Int ?? 16
+        return Evidence.percentages.firstIndex(where: { $0 >= percentage }).map { $0 + 1 } ?? 6
+    }
     func leave(resetReceipts: Bool = true) {
         if resetReceipts { actionReceipts.clear() }
         visible = false; generation = UUID(); work?.cancel(); command?.cancel(); draft?.cancel(); speedDraft = nil
@@ -49,6 +55,11 @@ import FanControlCore
         guard WKExtension.shared().applicationState == .active else { return }
         leave(resetReceipts: resetSelection); visible = true
         if resetSelection { connection = Vault.load(); sessionTarget = nil; showingSettings = false; feedback = nil; wakeAfter = nil }
+        // Migrate older unlocked-only keychain entries before the next wrist-down push.
+        if let connection { try? Vault.save(connection) }
+        if let connection, resetSelection {
+            PushDiagnostics.shared.record("opened", connection: connection)
+        }
         observed = connection.flatMap { c in device.map { ObservationCache.shared.load(c, $0) } } ?? [:]
         BackgroundRefresh.schedule()
         PushNotifications.register()
@@ -81,6 +92,7 @@ import FanControlCore
         client = Integration(connection)
         let ticket = generation
         work = Task {
+            Task { await PushDiagnostics.flush(connection) }
             // Resolve HA's current selection before the entry wake. A saved
             // connection may still name a different car after a watch-face tap.
             await refresh(ticket, allowEntryWake: allowEntryWake)
@@ -162,9 +174,7 @@ import FanControlCore
     }
     func adjust(_ delta: Int) {
         guard canAdjustSpeed else { return }
-        let percentage = (observed["attributes"] as? [String: Any])?["percentage"] as? Int ?? 0
-        let current = Evidence.percentages.firstIndex(where: { $0 >= percentage }).map { $0 + 1 } ?? 6
-        speedDraft = min(6, max(1, (speedDraft ?? current) + delta))
+        speedDraft = min(6, max(1, displayedSpeed + delta))
         draft?.cancel()
         let ticket = generation
         draft = Task {
@@ -174,16 +184,15 @@ import FanControlCore
             while busy {
                 do { try await Task.sleep(nanoseconds: 100_000_000) } catch { return }
             }
-            guard ticket == generation, visible, !Task.isCancelled, stateFresh else { return }
+            guard ticket == generation, visible, !Task.isCancelled else { return }
             guard let speed = speedDraft else { return }; speedDraft = nil
             send("speed\(speed)", label: "Speed \(speed)")
         }
     }
     func send(_ action: String, label: String) {
         let receiptAction = ActionReceipts.applies(action)
-        let toggle = ToggleIntent.family(action) != nil
         let replacing = busy && ToggleIntent.replaces(action, feedback?.command)
-        guard (!busy || replacing), receiptAction || toggle || stateFresh, visible,
+        guard (!busy || replacing), visible,
               let c = connection, let d = device, let client else { return }
         if replacing { command?.cancel() }
         draft?.cancel(); speedDraft = nil
@@ -225,7 +234,7 @@ import FanControlCore
                     // HA may select Driving after this accepted Stop completes.
                     // Keep polling the same approved operation, never a new target.
                     var comparable = live
-                    if action == "stop_exercise" && stopAccepted { comparable.entity = c.entity }
+                    if action == "stop_exercise" && stopAccepted { comparable.entity = c.entity; comparable.revision = c.revision }
                     guard comparable == c else { throw ControlError.invalidConfiguration }
                     try Task.checkCancellation()
                     guard ticket == generation, feedback?.id == f.id else { return }
@@ -302,7 +311,7 @@ import FanControlCore
         if busy { feedback?.phase = .unconfirmed; message = "Not confirmed" }
     }
     func paired(_ value: Connection) { connection = value; enter() }
-    func forget() { leave(); showingSettings = false; ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
+    func forget() { leave(); showingSettings = false; ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); PushDiagnostics.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
 }
 
 

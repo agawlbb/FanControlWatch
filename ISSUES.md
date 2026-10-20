@@ -1,5 +1,14 @@
 # Apple Watch beta issue batch — 0.2.0
 
+## October 20 follow-up — 0.5.2 (14)
+
+- Addressed initial gray control readiness gates and transitional cover gating; preserved absolute displayed-state reversal, pending-conflict protection and speed draft timing.
+- Addressed a locked-watch refresh obstacle by migrating connection accessibility to after first unlock, and reloading local selection before showing controls on foreground entry.
+- Added a persistent push receipt/outbox history and Settings diagnostics. HA send attempts, relay/APNs results, watch receipts, save results and first app selection are correlated separately. Missing receipts remain unknown.
+- HA's test harness uses explicit uv 0.13.4/Pillow 13.0.0 security overrides, validated in its own CI. This does not change deployed HA dependencies.
+
+Implementation and remaining hardware checks: BUILD-14.md. Wear OS audit items remain deferred under its pause.
+
 ## Follow-up batch — 0.3.0 (6)
 
 - Removed Cancel request and routine connection/music/request/failure captions.

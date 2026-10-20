@@ -5,9 +5,12 @@ struct ControlsView: View {
     @StateObject private var model = WatchModel()
     @Environment(\.scenePhase) private var scenePhase
     @State private var setup = false
+    @State private var entryReady = false
     var body: some View {
         Group {
-          if !model.showingSettings, model.device?.panel?.type == "exercise" {
+          if scenePhase != .active || !entryReady {
+            Color.black
+          } else if !model.showingSettings, model.device?.panel?.type == "exercise" {
             GeometryReader { geometry in
                 VStack(spacing: 4) {
                     actionControl("start_exercise", "Start exercise", compact: true)
@@ -49,14 +52,16 @@ struct ControlsView: View {
         .onOpenURL { url in
             if url.scheme == "fancontrol", url.host == "active" { model.enter() }
         }
-        .sheet(isPresented: $setup, onDismiss: { model.enter(resetSelection: false) }) { SetupView(model: model) }
-        .onAppear { model.enter() }
-        .onDisappear { model.leave() }
-        .onChange(of: scenePhase) { _, phase in if phase == .active && !setup { model.enter() } else { model.leave() } }
+        .sheet(isPresented: $setup, onDismiss: { model.enter(resetSelection: false); entryReady = scenePhase == .active }) { SetupView(model: model) }
+        .onAppear { model.enter(); entryReady = scenePhase == .active }
+        .onDisappear { entryReady = false; model.leave() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active && !setup { model.enter(); entryReady = true }
+            else { entryReady = false; model.leave() }
+        }
         .onChange(of: setup) { _, value in if value { model.leave() } }
     }
     private func control(_ action: String, _ label: String, known: Bool = true, enabled: Bool = true) -> some View {
-        let toggle = ToggleIntent.family(action) != nil
         let applies = model.feedback.map { $0.command == action || ToggleIntent.replaces(action, $0.command) } ?? false
         let feedback = applies ? model.feedback : nil
         let gray = !model.stateFresh || (feedback?.gray ?? !known)
@@ -66,27 +71,27 @@ struct ControlsView: View {
             Text(shown).frame(maxWidth: .infinity, minHeight: 40).foregroundStyle(gray ? Color.gray : Color.mint)
         }
         .tint(gray ? Color.gray.opacity(0.25) : Color.mint.opacity(0.18))
-        .disabled(blocked || (toggle ? !enabled : (!enabled || !model.stateFresh)))
+        .disabled(blocked || !enabled)
     }
     @ViewBuilder private func device(_ d: Device) -> some View {
         let state = model.observed["state"] as? String
         let available = state == "on" || state == "off"
         if ["script", "scene"].contains(d.domain) {
-            control("activate", "Run", known: false, enabled: state != nil && state != "unavailable" && state != "unknown")
+            control("activate", "Run", known: false)
         } else if ["fan", "light", "switch", "input_boolean"].contains(d.domain) {
             // Label projects the absolute next state immediately on the originating control.
             let pending = model.feedback?.phase != .confirmed && (model.feedback?.command == "turn_on" || model.feedback?.command == "turn_off")
             let action = pending ? ToggleIntent.opposite(model.feedback!.command)! : state == "on" ? "turn_off" : "turn_on"
-            control(action, pending ? model.feedback!.label : state == "on" ? "ON" : state == "off" ? "OFF" : "UNKNOWN", known: available, enabled: available || pending)
+            control(action, pending ? model.feedback!.label : state == "on" ? "ON" : "OFF", known: available)
                 
             if d.domain == "fan" {
                 let percentage = (model.observed["attributes"] as? [String: Any])?["percentage"] as? Int
                 let speed = percentage.flatMap { value in Evidence.percentages.firstIndex(where: { $0 >= value }).map { $0 + 1 } }
                 HStack {
-                    Button("−") { model.adjust(-1) }.disabled(!model.canAdjustSpeed || percentage == nil)
-                    Text(model.speedDraft.map(String.init) ?? (model.feedback?.command.hasPrefix("speed") == true ? model.feedback!.label : speed.map(String.init) ?? "?"))
+                    Button("−") { model.adjust(-1) }.disabled(!model.canAdjustSpeed || model.displayedSpeed <= 1)
+                    Text(model.speedDraft.map(String.init) ?? (model.feedback?.command.hasPrefix("speed") == true ? model.feedback!.label : speed.map(String.init) ?? "1"))
                         .foregroundStyle(!model.stateFresh || percentage == nil || model.speedDraft != nil || model.feedback?.command.hasPrefix("speed") == true && model.feedback!.gray ? Color.gray : Color.mint)
-                    Button("+") { model.adjust(1) }.disabled(!model.canAdjustSpeed || percentage == nil)
+                    Button("+") { model.adjust(1) }.disabled(!model.canAdjustSpeed || model.displayedSpeed >= 6)
                 }
                 .tint(.mint)
             }
@@ -135,13 +140,13 @@ struct ControlsView: View {
         let action = pending ? ToggleIntent.opposite(model.feedback!.command)! : on ? "climate_off" : "climate_on"
         let available = model.observed["climate_available"] as? Bool == true &&
             (!on || p.type != "driving" || model.observed["climate_off_available"] as? Bool == true)
-        return control(action, "\(p.climate_label ?? "Climate")\n\(on ? "ON" : "OFF")", known: available, enabled: available || pending || model.observed["climate_on"] is Bool)
+        return control(action, "\(p.climate_label ?? "Climate")\n\(on ? "ON" : "OFF")", known: available)
     }
     private func cover(_ role: String, _ title: String) -> some View {
         let observed = model.observed[role + "_state"] as? String
         let matching = model.feedback?.command.hasPrefix(role + "_") == true
         let action = matching && model.feedback?.phase != .confirmed ? ToggleIntent.opposite(model.feedback!.command)! : role + "_" + Evidence.coverIntent(observed)
-        return control(action, title + "\n" + (["open", "closed", "opening", "closing"].contains(observed ?? "") ? observed!.uppercased() : "CLOSED"), known: observed == "open" || observed == "closed", enabled: matching || observed != "opening" && observed != "closing")
+        return control(action, title + "\n" + ToggleIntent.coverPresentation(observed), known: observed == "open" || observed == "closed")
     }
 }
 
@@ -149,15 +154,17 @@ private struct SettingsPage: View {
     @ObservedObject var model: WatchModel
     @ObservedObject private var player = ExercisePlayer.shared
     let openConnection: () -> Void
+    @State private var diagnostics = false
     var body: some View {
         VStack(spacing: 10) {
             Label("Settings", systemImage: "gearshape").font(.headline)
             Button("Connection settings", action: openConnection)
+            Button("Push diagnostics") { diagnostics = true }
             Button(player.syncing ? "Syncing music…" : "Sync exercise music") {
                 if let c = model.connection { player.sync(c) }
             }.disabled(player.syncing || model.connection == nil)
             if !player.status.isEmpty { Text(player.status).font(.caption2).foregroundStyle(.secondary) }
-        }
+        }.sheet(isPresented: $diagnostics) { PushDiagnosticsView(connection: model.connection) }
     }
 }
 
