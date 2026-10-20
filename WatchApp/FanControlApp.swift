@@ -211,7 +211,11 @@ import FanControlCore
                     let config = try await client.request(["action": "config", "platform": "watch_os"])
                     var full = config; full["token"] = c.token; full["watch_id"] = c.watch_id
                     let live = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: full)).validated()
-                    guard live == c else { throw ControlError.invalidConfiguration }
+                    // HA may select Driving after this accepted Stop completes.
+                    // Keep polling the same approved operation, never a new target.
+                    var comparable = live
+                    if action == "stop_exercise" && stopAccepted { comparable.entity = c.entity }
+                    guard comparable == c else { throw ControlError.invalidConfiguration }
                     try Task.checkCancellation()
                     guard ticket == generation, feedback?.id == f.id else { return }
                     var state: [String: Any] = [:]
@@ -265,10 +269,8 @@ import FanControlCore
                     }
                     guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                     if receiptAccepted { feedback?.phase = .accepted; message = ""; return }
-                    // Preserve the separate one-shot music request after an
-                    // ambiguous Start response, without treating a later state
-                    // read as this tap's receipt. Stop keeps its existing stable
-                    // operation-ID delivery retries until HA acknowledges it.
+                    // Start is dispatched once; subsequent reads only establish
+                    // its lock outcome. Stop retains its stable operation ID.
                     if sent && Evidence.matches(action, state, panel: d.panel) {
                         completed = true
                         if receiptAction { actionReceipts.finish(f, accepted: true) }
