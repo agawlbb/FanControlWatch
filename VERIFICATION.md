@@ -86,3 +86,5 @@ Connect upload succeeded at 8:37 PM EDT on October 19. Build 7 was an intermedia
 build; build 8 preserves the existing separate music dispatch and stable Stop
 operation-ID delivery behavior. TestFlight processing/group assignment is recorded
 below after verification.
+
+App Store Connect processing completed. Test notes were saved and read back; build 0.3.1 (8) was assigned to the existing Internal group (one tester). The group's Builds page visibly reports **Testing**. Delivery proof is in ignored build/review031-build8/testflight-ready.png. Previous tester builds remain available. Both repositories are clean after recording delivery.

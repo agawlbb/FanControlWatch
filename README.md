@@ -43,3 +43,5 @@ Build 1 has completed processing and is assigned to the manual Internal group. T
 
 
 Version **0.3.0 build 6** is processed and Testing in the existing Internal TestFlight group. Exact source: 85331dd5b196b709d1095ec43a00f8d5ed88c596, tag v0.3.0. The macOS release/upload run is https://github.com/agawlbb/coffey-table-recipes/actions/runs/39341077559; 17 core tests, signed archive/export and embedded profile/signature checks passed. HA 0.5.1 is deployed with both car horn roles configured. See ISSUES.md and VERIFICATION.md for changes, simulator evidence and remaining hardware checks.
+
+Version **0.3.1 build 8** is processed and Testing in the existing Internal TestFlight group. Only Leave for Work, Honk Horn, Start Exercise and Stop Exercise gain session-retained Activated receipt feedback. Fan tile, speed controls and toggles remain unchanged. Source: 67e068d5d8975a219cc29e23f009626adb4dba92, tag v0.3.1; signed macOS release: https://github.com/agawlbb/coffey-table-recipes/actions/runs/39347941627. All 21 core tests, simulator/archive and signing/profile checks passed. Physical-watch acknowledgment, reset and handoff checks remain in VERIFICATION.md.
