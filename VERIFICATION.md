@@ -105,11 +105,17 @@ Verified 0.4.0 (9) source: d4f29cd9a3a05f8fce26d77e337069e759c0d5e1. macOS CI ht
 Build 0.4.0 (9), UUID 652a9f20-4d85-4e12-8982-54867fd5be56, is processed and Testing in the existing Internal group (1 tester), verified October 20, 2026. What to Test notes were saved. Existing builds remain available. Proof: build/review040-build9/testflight-ready.png.
 # Exercise local player — 0.5.0 (10), October 20, 2026
 
-Source implementation only; not deployed to HA or TestFlight. Windows has no
-Xcode/watchOS SDK, so the new Swift tests and watch target have not yet compiled.
-The macOS validation push was rejected by automatic approval review because the
-external repository destination requires explicit authorization. No audio was
-included or uploaded. Source-only branch: `codex/exercise-local-player`.
+Not deployed to HA or TestFlight. The user approved pushing the source-only
+branch `codex/exercise-local-player` to FanControlWatch for macOS validation.
+No purchased audio was included or uploaded. Draft PR:
+https://github.com/agawlbb/FanControlWatch/pull/1.
+
+macOS validation of source `9ca5ae0cafd29742a21b43e21e026c71217baf69` passed:
+28 Swift tests, watch simulator compilation/capture and unsigned device archive.
+Run: https://github.com/agawlbb/FanControlWatch/actions/runs/39479438447.
+The new encrypted-transfer fixture handles macOS URLSession's streamed POST
+bodies. Screenshot review prompted a compact Exercise action-button follow-up
+to leave the bottom control fully visible; the PR reruns validation for it.
 
 HA 0.6.0 source: 183 integration tests passed, including new encrypted private
 music transfer, replay rejection, watch/panel authorization, local Stop with
@@ -117,8 +123,7 @@ rounded temperature, partial/ambiguous dispatch, one-minute mismatch, unavailabl
 state, config change, revoked owner, and successful silent verification. Existing
 legacy Exercise tests pass unchanged. Wear OS code/builds/tests were not touched.
 
-Pending macOS: `swift test`, XcodeGen, simulator build/screenshots and unsigned
-archive. No paid audio is required for any automated check. Swift test additions
+No paid audio is required for any automated check. Swift test additions
 cover route gating, manifest validation, bounded larger encrypted music responses
 and Exercise receipt rejection/acceptance semantics.
 
