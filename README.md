@@ -98,3 +98,16 @@ Version 0.4.0 (build 9) adds passive background selection/fan refresh (requested
 0.4.0 (9) signed build and upload succeeded: https://github.com/agawlbb/coffey-table-recipes/actions/runs/39433947519. Source d4f29cd9a3a05f8fce26d77e337069e759c0d5e1 passed 24 Swift tests and simulator/archive checks. See ISSUES.md and VERIFICATION.md for hardware checks and TestFlight assignment status.
 
 Build 0.4.0 (9) is processed and Testing in the existing Internal TestFlight group. Release notes are saved; update through TestFlight.
+
+Version **0.5.0 (10)** is processed and **IN_BETA_TESTING** in the existing
+Internal TestFlight group. Source `0bdd8415649e906f12bf251e9209cd557b64cf24`
+passed 28 Swift tests, simulator captures and unsigned archive. Signed release:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/39487934220;
+Apple availability proof:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/39488295868.
+Matching HA 0.6.0 is deployed and loaded. Four test tracks are stored privately
+in HA's `fan_control_music` config folder and verified by SHA-256; no music is
+in the source or build artifacts. Update through TestFlight, then open Connection
+settings > Sync exercise music and keep the app open until the tracks are ready
+offline. Hardware playback, routing and physical vehicle checks remain in
+VERIFICATION.md. One-minute vehicle alerts are HA persistent notifications.

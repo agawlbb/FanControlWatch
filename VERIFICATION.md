@@ -105,17 +105,29 @@ Verified 0.4.0 (9) source: d4f29cd9a3a05f8fce26d77e337069e759c0d5e1. macOS CI ht
 Build 0.4.0 (9), UUID 652a9f20-4d85-4e12-8982-54867fd5be56, is processed and Testing in the existing Internal group (1 tester), verified October 20, 2026. What to Test notes were saved. Existing builds remain available. Proof: build/review040-build9/testflight-ready.png.
 # Exercise local player — 0.5.0 (10), October 20, 2026
 
-Not deployed to HA or TestFlight. The user approved pushing the source-only
-branch `codex/exercise-local-player` to FanControlWatch for macOS validation.
-No purchased audio was included or uploaded. Draft PR:
+Deployed October 20, 2026: HA 0.6.0 is loaded, and watch 0.5.0 (10) is VALID,
+IN_BETA_TESTING in the existing Internal group. Source-only branch:
+`codex/exercise-local-player`. No purchased audio is in source or build artifacts.
+Draft PR:
 https://github.com/agawlbb/FanControlWatch/pull/1.
 
-macOS validation of source `9ca5ae0cafd29742a21b43e21e026c71217baf69` passed:
+Final macOS validation of source `0bdd8415649e906f12bf251e9209cd557b64cf24` passed:
 28 Swift tests, watch simulator compilation/capture and unsigned device archive.
-Run: https://github.com/agawlbb/FanControlWatch/actions/runs/39479438447.
+Run: https://github.com/agawlbb/FanControlWatch/actions/runs/39481637913.
 The new encrypted-transfer fixture handles macOS URLSession's streamed POST
-bodies. Screenshot review prompted a compact Exercise action-button follow-up
-to leave the bottom control fully visible; the PR reruns validation for it.
+bodies. Reviewed waiting/playing and gray/teal Activated screenshots; explicit
+44-point Exercise action areas keep Stop fully visible.
+
+Signed archive/export, embedded signature/profile checks and upload passed:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/39487934220.
+Apple processing, existing Internal assignment and test notes were verified:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/39488295868.
+HA config check and restart succeeded; Fan Control returned loaded. Deployed
+Python compilation passed. Four test MP3 files were uploaded privately to the
+HA config music folder and their SHA-256 hashes matched the local originals.
+No vehicle commands were sent for deployment verification. On the watch, install
+build 10, then Connection settings > Sync exercise music; watch sync/playback
+has not been performed remotely.
 
 HA 0.6.0 source: 183 integration tests passed, including new encrypted private
 music transfer, replay rejection, watch/panel authorization, local Stop with
