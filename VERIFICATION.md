@@ -14,8 +14,11 @@ unsigned device archive. Signed push provisioning and TestFlight upload have not
 run for this change. Physical swipe timing, primary wake and passive APNs delivery
 still require a real watch. Wear OS code and validation are untouched under the
 development pause.
-The hosted relay responds at https://coffeybean.com/FanControl/ but remains
-unconfigured; live pushes require an APNs key and provisioned relay credentials.
+The hosted relay responds at https://coffeybean.com/FanControl/ and is configured
+with a private production APNs key. Live HA 0.6.2 is loaded with native push
+options enabled and authenticated relay checks passed without sending a push or
+vehicle command. Signed watch provisioning/upload and real delivery remain
+pending; no key or relay secret is included in source or build artifacts.
 
 ## Pending source-only Driving Podcast update — October 20, 2026
 
