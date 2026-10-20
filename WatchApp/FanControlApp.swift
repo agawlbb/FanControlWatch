@@ -46,6 +46,11 @@ import FanControlCore
         #if DEBUG
         if let preview = ControlPreview.snapshot() {
             connection = preview.0; observed = preview.1; stateFresh = true
+            #if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.arguments.contains("--preview-exercise") {
+                ExercisePlayer.shared.preview(playing: ProcessInfo.processInfo.arguments.contains("--preview-playing"))
+            }
+            #endif
             if ProcessInfo.processInfo.arguments.contains("--preview-pending") {
                 feedback = Feedback(target: preview.0.identity, command: "climate_off", label: "Climate OFF")
             }
@@ -175,10 +180,11 @@ import FanControlCore
             var sent = false
             var completed = false
             var receiptAccepted = false
+            var stopAccepted = false
             defer {
                 if ticket == generation && feedback?.id == f.id && feedback?.phase == .pending { feedback?.phase = .unconfirmed; message = "Not confirmed" }
                 if ticket == generation && receiptAction && !receiptAccepted { actionReceipts.finish(f, accepted: false) }
-                if action == "stop_exercise" && !completed && !receiptAccepted {
+                if action == "stop_exercise" && !completed && !stopAccepted {
                     var cancel = panelBody(d.panel!, command: "cancel_stop"); cancel["operation_id"] = operationID
                     let cancellationBody = cancel
                     Task { _ = try? await client.request(cancellationBody) }
@@ -223,6 +229,11 @@ import FanControlCore
                         }
                         if receiptAction && commandResponded {
                             guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
+                            if action == "stop_exercise", ["pending", "complete"].contains(state["operation_status"] as? String ?? "") {
+                                // HA owns bounded continuation once accepted, even though
+                                // the UI stays gray until the operation actually completes.
+                                stopAccepted = true
+                            }
                             guard ActionReceipts.acknowledges(action, response: state) else {
                                 if action != "stop_exercise" || state["operation_status"] as? String != "pending" { throw ControlError.notConfirmed }
                                 // Keep polling this operation; acceptance alone is not completion.

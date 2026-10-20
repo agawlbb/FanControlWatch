@@ -202,6 +202,13 @@ import FanControlCore
             }
         }
     }
+    #if DEBUG && targetEnvironment(simulator)
+    func preview(playing: Bool) {
+        // Rendering fixtures contain no audio and never activate an audio session.
+        self.playing = playing; beganPlayback = playing; waiting = !playing
+        status = playing ? "" : "Waiting for headset"
+    }
+    #endif
 }
 
 struct ExercisePlaybackView: View {

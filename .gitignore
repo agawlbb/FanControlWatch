@@ -8,9 +8,9 @@ build/
 *.mobileprovision
 .env*
 private-music/
-*.mp3
-*.m4a
-*.aac
-*.wav
-*.aiff
-*.flac
+*.[mM][pP]3
+*.[mM]4[aA]
+*.[aA][aA][cC]
+*.[wW][aA][vV]
+*.[aA][iI][fF][fF]
+*.[fF][lL][aA][cC]

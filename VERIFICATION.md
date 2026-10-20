@@ -103,3 +103,32 @@ HA Podcast source passed 172 tests locally. Swift tests, watch simulator compila
 Verified 0.4.0 (9) source: d4f29cd9a3a05f8fce26d77e337069e759c0d5e1. macOS CI https://github.com/agawlbb/FanControlWatch/actions/runs/39433912115 passed 24 Swift tests, simulator captures and unsigned archive. Signed release https://github.com/agawlbb/coffey-table-recipes/actions/runs/39433947519 passed archive/export/signature/profile checks and upload. Reviewed Driving normal/pending simulator captures: Podcast fits the two-column grid (artifact 12270045760). Android validateDebug passed. TestFlight group assignment completed after App Store Connect reauthentication. HA 0.5.2 source is published; deployment is separate.
 
 Build 0.4.0 (9), UUID 652a9f20-4d85-4e12-8982-54867fd5be56, is processed and Testing in the existing Internal group (1 tester), verified October 20, 2026. What to Test notes were saved. Existing builds remain available. Proof: build/review040-build9/testflight-ready.png.
+# Exercise local player — 0.5.0 (10), October 20, 2026
+
+Source implementation only; not deployed to HA or TestFlight. Windows has no
+Xcode/watchOS SDK, so the new Swift tests and watch target have not yet compiled.
+The macOS validation push was rejected by automatic approval review because the
+external repository destination requires explicit authorization. No audio was
+included or uploaded. Source-only branch: `codex/exercise-local-player`.
+
+HA 0.6.0 source: 183 integration tests passed, including new encrypted private
+music transfer, replay rejection, watch/panel authorization, local Stop with
+rounded temperature, partial/ambiguous dispatch, one-minute mismatch, unavailable
+state, config change, revoked owner, and successful silent verification. Existing
+legacy Exercise tests pass unchanged. Wear OS code/builds/tests were not touched.
+
+Pending macOS: `swift test`, XcodeGen, simulator build/screenshots and unsigned
+archive. No paid audio is required for any automated check. Swift test additions
+cover route gating, manifest validation, bounded larger encrypted music responses
+and Exercise receipt rejection/acceptance semantics.
+
+Pending on Ultra 4/watchOS 27.0.1: private music sync and offline playback;
+Joseph's Buds2 Pro pairing and route identity after re-pair; delayed headset
+connection; built-in speaker opt-in and session reset; route loss without an
+audible speaker fallback; call interruptions; previous/pause/next and ordered
+repeat; select native volume control and adjust Crown; wrist-down and screen
+navigation; Start lock/Stop unlock+climate with gray then teal feedback; HA
+notification at one minute for mismatch/offline; target change/revocation and
+Stop continuation/Driving selection. HA persistent notifications do not provide
+phone/watch push without separate notification routing. Automated checks do not
+verify actual watch rendering, audible playback or physical car behavior.

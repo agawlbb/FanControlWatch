@@ -23,6 +23,10 @@ for mode in driving exercise; do
     xcrun simctl io "$udid" screenshot "build/watch-$mode.png"
 done
 xcrun simctl terminate "$udid" dev.fancontrol.watch.watchkitapp
+xcrun simctl launch "$udid" dev.fancontrol.watch.watchkitapp --preview-exercise --preview-playing
+sleep 2
+xcrun simctl io "$udid" screenshot build/watch-exercise-playing.png
+xcrun simctl terminate "$udid" dev.fancontrol.watch.watchkitapp
 xcrun simctl launch "$udid" dev.fancontrol.watch.watchkitapp --preview-driving --preview-pending
 sleep 2
 xcrun simctl io "$udid" screenshot build/watch-driving-pending.png
