@@ -15,7 +15,7 @@ final class PushTraceTests: XCTestCase {
         let update = UUID().uuidString.lowercased()
         let trace = PushTrace(defaults: defaults)
         trace.record("received", connection: c, updateID: update, now: Date(timeIntervalSince1970: 1800000000))
-        trace.record("selection_saved", connection: c, updateID: update)
+        trace.record("selection_saved", connection: c, updateID: update, now: Date(timeIntervalSince1970: 1800000001))
         let restored = PushTrace(defaults: defaults), events = restored.pending(c)
         XCTAssertEqual(events.count, 2)
         XCTAssertEqual(events.first?.at_ms, 1800000000000)

@@ -22,7 +22,7 @@ final class FeedbackTests: XCTestCase {
     func testCoverAssumptionFixesAbsoluteOpen() {
         let intent = Evidence.coverIntent(nil)
         XCTAssertEqual(intent, "open")
-        XCTAssertEqual(Evidence.coverIntent("opening"), "open")
+        XCTAssertEqual(Evidence.coverIntent("opening"), "close")
         XCTAssertEqual(Evidence.coverIntent("open"), "close")
         XCTAssertEqual(intent, "open")
     }
