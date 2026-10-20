@@ -8,6 +8,12 @@ passed. Reviewed waiting, playing, gray Activated, teal Activated and Settings
 captures: Start/Stop anchors match across all Exercise states and native volume
 is separate from playback controls. This is simulator evidence only.
 
+Signed build, export, signature/profile checks and App Store Connect upload
+passed: https://github.com/agawlbb/coffey-table-recipes/actions/runs/39496604460.
+Apple processing and existing Internal TestFlight group availability passed:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/39496604424.
+Build 0.5.0 (12) is VALID and IN_BETA_TESTING in Internal.
+
 - Navigation starts with HA's active panel, then other approved controls, then
   Settings. The ends do not wrap; Settings never separates control panels.
 - Exercise uses fixed top/bottom Start and Stop buttons and a flexible middle.

@@ -125,3 +125,11 @@ Signed release/upload:
 https://github.com/agawlbb/coffey-table-recipes/actions/runs/39490119699.
 Apple VALID / IN_BETA_TESTING / Internal confirmation:
 https://github.com/agawlbb/coffey-table-recipes/actions/runs/39490119809.
+
+Build **0.5.0 (12)** supersedes build 11 and is available in the existing Internal
+TestFlight group. Settings is terminal after all controls; Exercise Start/Stop
+stay anchored and native Crown volume has a separate row below playback.
+HA 0.6.1 fixes Stop delivery and confirms unlock plus climate on, ignoring
+temperature mismatch. Allow notifications for the watch's one-minute
+unconfirmed alert. All 31 Swift tests, simulator/archive checks and 187 HA tests
+passed. [Build details and physical checks](BUILD-12.md).
