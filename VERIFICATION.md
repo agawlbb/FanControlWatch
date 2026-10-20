@@ -7,10 +7,13 @@ refresh, 1.5-second swipe-entry vehicle wake delay and immediate primary entry
 after HA target verification. No cooldown. Config refreshes never create entry
 wake. See PUSH-REFRESH.md for signing requirements and physical checks.
 
-Source review completed locally. macOS Swift tests, simulator compilation and
-signed archive have not run for this change: automatic approval review rejected
-the feature-branch GitHub push pending explicit user authorization. No TestFlight
-upload. Wear OS code and validation are untouched under the development pause.
+Source `679b5a9548fcfc3d8532ecadcbf83947e4ee3ca8` passed
+[macOS CI](https://github.com/agawlbb/FanControlWatch/actions/runs/39499938418):
+31 Swift tests, watchOS simulator compilation, simulator capture generation and
+unsigned device archive. Signed push provisioning and TestFlight upload have not
+run for this change. Physical swipe timing, primary wake and passive APNs delivery
+still require a real watch. Wear OS code and validation are untouched under the
+development pause.
 The hosted relay responds at https://coffeybean.com/FanControl/ but remains
 unconfigured; live pushes require an APNs key and provisioned relay credentials.
 

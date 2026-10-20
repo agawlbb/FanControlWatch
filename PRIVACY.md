@@ -1,6 +1,8 @@
 # Privacy
 
-Fan Control for Apple Watch sends pairing, configuration, state and command requests directly to the Home Assistant addresses you configure. It has no developer-operated backend, advertising, analytics or tracking SDK. Home Assistant and your configured remote-access provider handle those requests under their own policies.
+Fan Control for Apple Watch sends pairing, configuration, state and command requests directly to the Home Assistant addresses you configure. It has no advertising, analytics or tracking SDK. Home Assistant and your configured remote-access provider handle those requests under their own policies.
+
+Optional push refresh uses the relay at https://coffeybean.com/FanControl/ and Apple's APNs service. When enabled in HA, your HA installation sends its installation identifier, a paired-watch identifier, the watch's APNs device token and sandbox/production environment to the relay. Refresh requests identify that watch and whether selection, configuration or selected-panel state changed. Push payloads contain only a refresh hint; the watch fetches actual data directly from HA. HA credentials, entity IDs, car names, observations and exercise audio are not sent to the relay. The relay stores scoped registrations and short-lived replay-protection metadata in private server storage; unregister removes the registration when the relay is reachable. Ordinary hosting access logs may record connection metadata. Push hints never issue vehicle commands. Background polling remains available if push is disabled or unavailable.
 
 The watch stores its independent revocable Home Assistant integration credential and approved configuration in the device-only Keychain, accessible while unlocked. It does not store your Home Assistant account password or Spotify credentials. Forget connection removes the local credential; revoke the watch in Home Assistant to remove server access.
 
