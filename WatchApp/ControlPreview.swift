@@ -13,12 +13,12 @@ enum ControlPreview {
         "entity":"panel.preview","devices":[{"entity":"panel.preview","title":"Preview","panel":{
         "id":"preview","name":"Preview","type":"\(type)","color":[112,226,194],"garage_entity":"cover.garage",
         "trunk_entity":"cover.trunk","climate_entity":"climate.car","lock_entity":"lock.car",
-        "horn_entity":"button.horn","wake_entity":"button.wake","awake_entity":"binary_sensor.online"}}]}
+        "horn_entity":"button.horn","podcast_entity":"script.podcast","wake_entity":"button.wake","awake_entity":"binary_sensor.online"}}]}
         """
         guard let c = try? JSONDecoder().decode(Connection.self, from: Data(json.utf8)).validated() else { return nil }
         return (c, ["vehicle_ready":true,"garage_state":"closed","trunk_state":"open",
                     "garage_open_available":true,"garage_close_available":true,"trunk_open_available":true,"trunk_close_available":true,
-                    "climate_available":true,"climate_off_available":true,"climate_on":true,"honk_available":true,
+                    "climate_available":true,"climate_off_available":true,"climate_on":true,"honk_available":true,"podcast_available":true,
                     "start_available":true,"stop_available":true,"locked":true])
     }
 }

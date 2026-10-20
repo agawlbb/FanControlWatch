@@ -3,7 +3,10 @@ import WatchKit
 import FanControlCore
 
 @main struct FanControlApp: App {
-    var body: some Scene { WindowGroup { ControlsView() } }
+    var body: some Scene {
+        WindowGroup { ControlsView() }
+            .backgroundTask(.appRefresh(BackgroundRefresh.identifier)) { await BackgroundRefresh.run() }
+    }
 }
 @MainActor final class WatchModel: ObservableObject {
     @Published var connection = Vault.load()
@@ -23,6 +26,9 @@ import FanControlCore
     @Published private var sessionTarget: String?
     var device: Device? { connection?.devices.first { $0.entity == (sessionTarget ?? connection?.entity) } }
     var busy: Bool { feedback?.phase == .pending }
+    // Action requests can start before the first observation. Keep entry reads
+    // running so the settled visible-entry wake cannot be blocked by that tap.
+    private var canRefresh: Bool { !busy || feedback.map { ActionReceipts.applies($0.command) } == true }
     var canAdjustSpeed: Bool { stateFresh && device?.domain == "fan" && (!busy || feedback?.command == "turn_on") && ["on", "off"].contains(observed["state"] as? String ?? "") }
     func leave(resetReceipts: Bool = true) {
         if resetReceipts { actionReceipts.clear() }
@@ -32,7 +38,9 @@ import FanControlCore
     }
     func enter(resetSelection: Bool = true) {
         leave(resetReceipts: resetSelection); visible = true
-        if resetSelection { sessionTarget = nil; observed = [:]; feedback = nil }
+        if resetSelection { connection = Vault.load(); sessionTarget = nil; feedback = nil }
+        observed = connection.flatMap { c in device.map { ObservationCache.shared.load(c, $0) } } ?? [:]
+        BackgroundRefresh.schedule()
         #if DEBUG
         if let preview = ControlPreview.snapshot() {
             connection = preview.0; observed = preview.1; stateFresh = true
@@ -64,7 +72,7 @@ import FanControlCore
                     wakeAttempted = true
                     _ = try? await client?.request(panelBody(p, command: "wake"))
                 }
-                if !busy && speedDraft == nil { await refresh(ticket) }
+                if canRefresh && speedDraft == nil { await refresh(ticket) }
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
             }
         }
@@ -91,7 +99,7 @@ import FanControlCore
             let config = try await client.request(["action": "config", "platform": "watch_os"])
             var complete = config; complete["token"] = old.token; complete["watch_id"] = old.watch_id
             let next = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: complete)).validated()
-            guard ticket == generation, !Task.isCancelled, !busy else { return }
+            guard ticket == generation, !Task.isCancelled, canRefresh else { return }
             if next != old {
                 if next.devices != old.devices || next.watch_id != old.watch_id { actionReceipts.clear() }
                 try Vault.save(next); connection = next; observed = [:]; feedback = nil
@@ -100,13 +108,17 @@ import FanControlCore
             }
             guard let d = device else { observed = [:]; return }
             let state = try await client.request(stateBody(d))
-            guard ticket == generation, !Task.isCancelled, !busy else { return }
-            observed = state; stateFresh = true; message = ""
+            guard ticket == generation, !Task.isCancelled, canRefresh else { return }
+            ObservationCache.shared.save(state, connection: old, device: d)
+            if d.domain == "fan", !["on", "off"].contains(state["state"] as? String ?? "") {
+                observed = ObservationCache.shared.load(old, d); stateFresh = false
+            } else { observed = state; stateFresh = true }
+            message = ""
             if !busy && speedDraft == nil { feedback = nil }
         } catch {
             guard ticket == generation, !Task.isCancelled else { return }
             // A failed read is not an HA observation of unknown/off. Retain only
-            // this visible target's last observation, gray and noninteractive.
+            // this visible target's last observation in gray. Its toggle stays tappable.
             stateFresh = false; message = "Connection interrupted"
             if case ControlError.rejected(let status) = error, [401, 403].contains(status), connection == old { forget(); message = "Watch access revoked. Pair again." }
         }
@@ -135,10 +147,14 @@ import FanControlCore
         }
     }
     func send(_ action: String, label: String) {
-        guard !busy, stateFresh, visible, let c = connection, let d = device, let client else { return }
+        let receiptAction = ActionReceipts.applies(action)
+        let toggle = ToggleIntent.family(action) != nil
+        let replacing = busy && ToggleIntent.replaces(action, feedback?.command)
+        guard (!busy || replacing), receiptAction || toggle || stateFresh, visible,
+              let c = connection, let d = device, let client else { return }
+        if replacing { command?.cancel() }
         draft?.cancel(); speedDraft = nil
         let requested = RequestedPresentation.label(command: action, original: label)
-        let receiptAction = ActionReceipts.applies(action)
         let f = Feedback(target: receiptAction ? c.watch_id + "|" + d.entity : c.identity, command: action, label: requested)
         if receiptAction { actionReceipts.begin(f) }
         feedback = f; message = "Requested"; musicEvidence = ""
@@ -173,6 +189,8 @@ import FanControlCore
                     var full = config; full["token"] = c.token; full["watch_id"] = c.watch_id
                     let live = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: full)).validated()
                     guard live == c else { throw ControlError.invalidConfiguration }
+                    try Task.checkCancellation()
+                    guard ticket == generation, feedback?.id == f.id else { return }
                     var state = try await client.request(stateBody(d))
                     var body = d.panel.map { panelBody($0, command: action) } ?? ["action": "command", "entity": d.entity, "command": action]
                     if action == "stop_exercise" { body["operation_id"] = operationID; body["issued_at_ms"] = issued }
@@ -182,8 +200,11 @@ import FanControlCore
                         if action.hasPrefix("garage_") || action.hasPrefix("trunk_") { available = ready && state[action + "_available"] as? Bool == true }
                         else if action.hasPrefix("climate_") { available = ready && state["climate_available"] as? Bool == true && (action != "climate_off" || p.type != "driving" || state["climate_off_available"] as? Bool == true) }
                         else if action == "honk" { available = ready && state["honk_available"] as? Bool == true }
+                        else if action == "podcast" { available = state["podcast_available"] as? Bool == true }
                         else { available = ready && state[action == "leave" ? "script_available" : action == "start_exercise" ? "start_available" : "stop_available"] as? Bool == true }
                     } else { available = ["on", "off"].contains(state["state"] as? String ?? "") || ["script", "scene"].contains(d.domain) && !["unknown", "unavailable", ""].contains(state["state"] as? String ?? "") }
+                    try Task.checkCancellation()
+                    guard ticket == generation, feedback?.id == f.id, connection == c else { return }
                     if available && (!sent || action == "stop_exercise") {
                         sent = true // Ambiguous responses must never replay one-shot actions.
                         var commandResponded = false
@@ -191,7 +212,7 @@ import FanControlCore
                         catch {
                             try Task.checkCancellation()
                             if case ControlError.rejected = error { throw error }
-                            if action == "activate" || action == "leave" || action == "honk" { throw error }
+                            if action == "activate" || action == "leave" || action == "honk" || action == "podcast" { throw error }
                             // Delivery may have happened. Poll evidence without replaying the command.
                             state = [:]
                         }
@@ -200,7 +221,7 @@ import FanControlCore
                             guard ActionReceipts.acknowledges(action, response: state) else { throw ControlError.notConfirmed }
                             receiptAccepted = true; actionReceipts.finish(f, accepted: true)
                         }
-                        if action == "activate" || action == "leave" || action == "honk" || action == "stop_exercise" && receiptAccepted {
+                        if action == "activate" || action == "leave" || action == "honk" || action == "podcast" || action == "stop_exercise" && receiptAccepted {
                             guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                             feedback?.phase = .accepted; message = "Request accepted"; return
                         }
@@ -219,7 +240,9 @@ import FanControlCore
                     // operation-ID delivery retries until HA acknowledges it.
                     if action == "start_exercise" && sent { throw ControlError.notConfirmed }
                     if sent && Evidence.matches(action, state, panel: d.panel) {
-                        completed = true; observed = state; stateFresh = true; feedback?.phase = .confirmed; message = ""; return
+                        completed = true
+                        ObservationCache.shared.save(state, connection: c, device: d)
+                        observed = state; stateFresh = true; feedback?.phase = .confirmed; message = ""; return
                     }
                     try await Task.sleep(nanoseconds: 700_000_000)
                 }
@@ -234,7 +257,7 @@ import FanControlCore
         if busy { feedback?.phase = .unconfirmed; message = "Not confirmed" }
     }
     func paired(_ value: Connection) { connection = value; enter() }
-    func forget() { leave(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
+    func forget() { leave(); ObservationCache.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
 }
 
 

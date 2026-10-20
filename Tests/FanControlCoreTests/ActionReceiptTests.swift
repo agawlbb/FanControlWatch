@@ -2,8 +2,21 @@ import XCTest
 @testable import FanControlCore
 
 final class ActionReceiptTests: XCTestCase {
+    func testUntouchedActionsAreTealAndOnlyUnacknowledgedRequestsAreGray() {
+        XCTAssertFalse(ActionReceipts.isGray(nil))
+        var receipts = ActionReceipts()
+        let request = Feedback(target: "watch/panel", command: "honk", label: "Activated")
+        receipts.begin(request)
+        XCTAssertTrue(ActionReceipts.isGray(receipts.feedback(target: request.target, command: request.command)))
+        receipts.finish(request, accepted: false)
+        XCTAssertTrue(ActionReceipts.isGray(receipts.feedback(target: request.target, command: request.command)))
+        receipts.finish(request, accepted: true)
+        XCTAssertFalse(ActionReceipts.isGray(receipts.feedback(target: request.target, command: request.command)))
+        receipts.clear()
+        XCTAssertFalse(ActionReceipts.isGray(receipts.feedback(target: request.target, command: request.command)))
+    }
     func testActionsExcludeFanSpeedAndToggles() {
-        for command in ["leave", "honk", "start_exercise", "stop_exercise"] {
+        for command in ["leave", "honk", "podcast", "start_exercise", "stop_exercise"] {
             XCTAssertTrue(ActionReceipts.applies(command))
         }
         for command in ["turn_on", "turn_off", "speed1", "speed6", "climate_on", "climate_off", "garage_open", "trunk_close", "activate"] {
@@ -11,6 +24,7 @@ final class ActionReceiptTests: XCTestCase {
             XCTAssertFalse(ActionReceipts.acknowledges(command, response: [:]))
         }
         XCTAssertFalse(Evidence.matches("honk", ["accepted":true], panel:nil))
+        XCTAssertFalse(Evidence.matches("podcast", ["accepted":true], panel:nil))
     }
     func testStopAcceptsPendingButRejectsTerminalRejections() {
         for status in ["pending", "complete"] {

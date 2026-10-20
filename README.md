@@ -10,6 +10,10 @@ Requested outcomes appear immediately in gray. Confirmed HA evidence is separate
 
 ## Pairing
 
+### Pending source update: Driving Podcast action
+
+Driving now lays out Garage / Trunk, Climate / Honk Horn, and Podcast / an empty cell in two columns and three rows. In HA's native Driving panel editor, select the optional **Podcast script** (for example `script.baby_blue_podcast_play`). The watch sends that configured script once per tap, without requiring the car to be awake or selecting a Spotify device. Gray Activated followed by teal Activated acknowledges HA dispatch only; it does not confirm script completion or podcast playback. Existing panels remain valid without a podcast script. This source update has not been built, tested or deployed, at the user's request. Wear OS remains paused and unchanged by this update.
+
 Enter your HA local or HTTPS address on the watch, choose Pair, then approve the eight-digit code in HA's native Fan Control configuration. Compare every fingerprint character. Configure devices, panels and the default active selection in HA. Remote addresses require HTTPS. This client uses address entry; Bonjour discovery is not implemented. The Active Panel complication is available in compatible watch-face slots.
 
 ## Builds
@@ -45,3 +49,6 @@ Build 1 has completed processing and is assigned to the manual Internal group. T
 Version **0.3.0 build 6** is processed and Testing in the existing Internal TestFlight group. Exact source: 85331dd5b196b709d1095ec43a00f8d5ed88c596, tag v0.3.0. The macOS release/upload run is https://github.com/agawlbb/coffey-table-recipes/actions/runs/39341077559; 17 core tests, signed archive/export and embedded profile/signature checks passed. HA 0.5.1 is deployed with both car horn roles configured. See ISSUES.md and VERIFICATION.md for changes, simulator evidence and remaining hardware checks.
 
 Version **0.3.1 build 8** is processed and Testing in the existing Internal TestFlight group. Only Leave for Work, Honk Horn, Start Exercise and Stop Exercise gain session-retained Activated receipt feedback. Fan tile, speed controls and toggles remain unchanged. Source: 67e068d5d8975a219cc29e23f009626adb4dba92, tag v0.3.1; signed macOS release: https://github.com/agawlbb/coffey-table-recipes/actions/runs/39347941627. All 21 core tests, simulator/archive and signing/profile checks passed. Physical-watch acknowledgment, reset and handoff checks remain in VERIFICATION.md.
+
+
+Version 0.4.0 (build 9) adds passive background selection/fan refresh (requested every 15 minutes, watchOS scheduling permitting), persisted observed power/speed, and gray cached state on entry. Background networking disallows the watch cellular radio but permits expensive phone-proxy routes; the phone-cellular path needs hardware validation. Untouched actions open teal and tappable. Gray toggles can be reversed with explicit absolute commands, including while the previous request is pending. Older callbacks cannot confirm a newer tap. Fan speed's existing quiet window is unchanged. Driving includes an HA-configured Podcast script action in a two-column grid. Exercise and Spotify behavior are otherwise unchanged.

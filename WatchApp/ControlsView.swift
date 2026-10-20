@@ -41,15 +41,17 @@ struct ControlsView: View {
         .onChange(of: setup) { _, value in if value { model.leave() } }
     }
     private func control(_ action: String, _ label: String, known: Bool = true, enabled: Bool = true) -> some View {
-        let applies = model.feedback?.command == action
+        let toggle = ToggleIntent.family(action) != nil
+        let applies = model.feedback.map { $0.command == action || ToggleIntent.replaces(action, $0.command) } ?? false
         let feedback = applies ? model.feedback : nil
         let gray = !model.stateFresh || (feedback?.gray ?? !known)
         let shown = feedback?.label ?? label
+        let blocked = model.busy && !ToggleIntent.replaces(action, model.feedback?.command)
         return Button { model.send(action, label: label) } label: {
             Text(shown).frame(maxWidth: .infinity, minHeight: 40).foregroundStyle(gray ? Color.gray : Color.mint)
         }
         .tint(gray ? Color.gray.opacity(0.25) : Color.mint.opacity(0.18))
-        .disabled(model.busy || !enabled || !model.stateFresh)
+        .disabled(blocked || (toggle ? !enabled : (!enabled || !model.stateFresh)))
     }
     @ViewBuilder private func device(_ d: Device) -> some View {
         let state = model.observed["state"] as? String
@@ -59,8 +61,8 @@ struct ControlsView: View {
         } else if ["fan", "light", "switch", "input_boolean"].contains(d.domain) {
             // Label projects the absolute next state immediately on the originating control.
             let pending = model.feedback?.phase != .confirmed && (model.feedback?.command == "turn_on" || model.feedback?.command == "turn_off")
-            let action = pending ? model.feedback!.command : state == "on" ? "turn_off" : "turn_on"
-            control(action, pending ? model.feedback!.label : state == "on" ? "ON" : state == "off" ? "OFF" : "UNKNOWN", known: available, enabled: available)
+            let action = pending ? ToggleIntent.opposite(model.feedback!.command)! : state == "on" ? "turn_off" : "turn_on"
+            control(action, pending ? model.feedback!.label : state == "on" ? "ON" : state == "off" ? "OFF" : "UNKNOWN", known: available, enabled: available || pending)
                 
             if d.domain == "fan" {
                 let percentage = (model.observed["attributes"] as? [String: Any])?["percentage"] as? Int
@@ -77,47 +79,49 @@ struct ControlsView: View {
     }
     @ViewBuilder private func panel(_ p: Panel) -> some View {
         if p.type == "driving" {
+            // Five controls fill a two-column, three-row grid; the final cell stays empty.
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 cover("garage", "Garage")
                 cover("trunk", "Trunk")
                 climate(p)
-                actionControl("honk", "Honk Horn", enabled: model.observed["honk_available"] as? Bool == true)
+                actionControl("honk", "Honk Horn")
+                actionControl("podcast", "Podcast")
             }
         } else if p.type == "exercise" {
-            actionControl("start_exercise", "Start exercise", enabled: model.observed["start_available"] as? Bool == true)
-            actionControl("stop_exercise", "Stop exercise", enabled: model.observed["stop_available"] as? Bool == true)
+            actionControl("start_exercise", "Start exercise")
+            actionControl("stop_exercise", "Stop exercise")
         } else {
             let battery = model.observed["battery"] as? Double
             Text(battery.map { String(format: "%.0f%%", $0) } ?? "?%")
                 .foregroundStyle(model.stateFresh && battery != nil ? Color.mint : Color.gray)
             climate(p)
-            actionControl("leave", p.script_label ?? "Leave for work", enabled: model.observed["script_available"] as? Bool == true)
+            actionControl("leave", p.script_label ?? "Leave for work")
         }
     }
-    private func actionControl(_ action: String, _ label: String, enabled: Bool) -> some View {
+    private func actionControl(_ action: String, _ label: String) -> some View {
         let receipt = model.actionFeedback(action)
-        let gray = receipt.map { $0.phase != .accepted } ?? (!model.stateFresh || !enabled)
+        let gray = ActionReceipts.isGray(receipt)
         return Button { model.send(action, label: label) } label: {
             Text(receipt == nil ? label : "Activated")
                 .frame(maxWidth: .infinity, minHeight: 40)
                 .foregroundStyle(gray ? Color.gray : Color.mint)
         }
         .tint(gray ? Color.gray.opacity(0.25) : Color.mint.opacity(0.18))
-        .disabled(model.busy || !enabled || !model.stateFresh)
+        .disabled(model.busy)
     }
     private func climate(_ p: Panel) -> some View {
         let on = model.observed["climate_on"] as? Bool == true
         let pending = model.feedback?.phase != .confirmed && model.feedback?.command.hasPrefix("climate_") == true
-        let action = pending ? model.feedback!.command : on ? "climate_off" : "climate_on"
+        let action = pending ? ToggleIntent.opposite(model.feedback!.command)! : on ? "climate_off" : "climate_on"
         let available = model.observed["climate_available"] as? Bool == true &&
             (!on || p.type != "driving" || model.observed["climate_off_available"] as? Bool == true)
-        return control(action, "\(p.climate_label ?? "Climate")\n\(on ? "ON" : "OFF")", known: available, enabled: available)
+        return control(action, "\(p.climate_label ?? "Climate")\n\(on ? "ON" : "OFF")", known: available, enabled: available || pending || model.observed["climate_on"] is Bool)
     }
     private func cover(_ role: String, _ title: String) -> some View {
         let observed = model.observed[role + "_state"] as? String
         let matching = model.feedback?.command.hasPrefix(role + "_") == true
-        let action = matching && model.feedback?.phase != .confirmed ? model.feedback!.command : role + "_" + Evidence.coverIntent(observed)
-        return control(action, title + "\n" + (["open", "closed", "opening", "closing"].contains(observed ?? "") ? observed!.uppercased() : "CLOSED"), known: observed == "open" || observed == "closed", enabled: observed != "opening" && observed != "closing")
+        let action = matching && model.feedback?.phase != .confirmed ? ToggleIntent.opposite(model.feedback!.command)! : role + "_" + Evidence.coverIntent(observed)
+        return control(action, title + "\n" + (["open", "closed", "opening", "closing"].contains(observed ?? "") ? observed!.uppercased() : "CLOSED"), known: observed == "open" || observed == "closed", enabled: matching || observed != "opening" && observed != "closing")
     }
 }
 

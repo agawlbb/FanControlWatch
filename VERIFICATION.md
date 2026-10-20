@@ -1,5 +1,11 @@
 # Verification and device checks
 
+## Pending source-only Driving Podcast update — October 20, 2026
+
+Added the fifth Driving control, Podcast, in a two-column, three-row grid. Added the optional HA-configured script role, one-shot dispatch, and the existing per-action receipt path. Added source regression coverage for script role validation, unavailable/running scripts, vehicle-independent dispatch and action classification; updated the synthetic Driving preview. At the user's explicit request, no builds, tests, lint, simulator runs or validation were executed for this update. No deployment or real-watch/rendering/playback verification was performed. Wear OS sources were not changed for this update.
+
+After build/deployment, check both Driving pages with their HA-selected podcast script, small/large watch layout and scrolling, immediate gray Activated, authenticated receipt, lost response/no replay, stale configuration/callbacks, and Spotify Joe's actual playback device. HA acceptance is dispatch evidence only.
+
 Apple port version 0.2.0 (build 3), based on Android 1.5.3; HA integration 0.5.0.
 
 GitHub macOS CI compiles SwiftUI for watchsimulator and archives the watch-only distribution container. Core unit tests cover power/speed evidence, unavailable and mismatched responses, cover presentation assumptions, full Exercise Stop operation completion, pending/failure colors, request identity, encrypted response authentication, local/remote URL policy, safe read fallback, and no command fallback/replay after ambiguous transport failures.
@@ -88,3 +94,8 @@ operation-ID delivery behavior. TestFlight processing/group assignment is record
 below after verification.
 
 App Store Connect processing completed. Test notes were saved and read back; build 0.3.1 (8) was assigned to the existing Internal group (one tester). The group's Builds page visibly reports **Testing**. Delivery proof is in ignored build/review031-build8/testflight-ready.png. Previous tester builds remain available. Both repositories are clean after recording delivery.
+
+
+## 0.4.0 / build 9 validation
+
+HA Podcast source passed 172 tests locally. Swift tests, watch simulator compilation and archive are validated by the macOS workflow for the release commit. Required hardware checks: background delivery cadence with an active complication, phone cellular proxy versus watch LTE-only, cache display after termination, ON/OFF reversal during delayed receipt, stale responses after repeated taps, and HA Podcast script dispatch. Background reads never wake vehicles. Automated tests cannot prove radio routing, watch rendering or physical car behavior.
