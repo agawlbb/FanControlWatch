@@ -1,5 +1,19 @@
 # Verification and device checks
 
+## Pending passive push refresh — 0.5.1 (13), October 20, 2026
+
+Prepared APNs registration through encrypted HA pairing, passive selected-panel
+refresh, 1.5-second swipe-entry vehicle wake delay and immediate primary entry
+after HA target verification. No cooldown. Config refreshes never create entry
+wake. See PUSH-REFRESH.md for signing requirements and physical checks.
+
+Source review completed locally. macOS Swift tests, simulator compilation and
+signed archive have not run for this change: automatic approval review rejected
+the feature-branch GitHub push pending explicit user authorization. No TestFlight
+upload. Wear OS code and validation are untouched under the development pause.
+The hosted relay responds at https://coffeybean.com/FanControl/ but remains
+unconfigured; live pushes require an APNs key and provisioned relay credentials.
+
 ## Pending source-only Driving Podcast update — October 20, 2026
 
 Added the fifth Driving control, Podcast, in a two-column, three-row grid. Added the optional HA-configured script role, one-shot dispatch, and the existing per-action receipt path. Added source regression coverage for script role validation, unavailable/running scripts, vehicle-independent dispatch and action classification; updated the synthetic Driving preview. At the user's explicit request, no builds, tests, lint, simulator runs or validation were executed for this update. No deployment or real-watch/rendering/playback verification was performed. Wear OS sources were not changed for this update.

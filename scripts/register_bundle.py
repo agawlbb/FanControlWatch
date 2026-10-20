@@ -51,3 +51,17 @@ if not result["data"]:
     print("Registered active-panel complication bundle ID")
 else:
     print("Active-panel complication bundle ID already registered")
+
+# Enable only the watch app's push capability before refreshing signing profiles.
+# This uses the existing CI Apple account; it does not create an APNs private key.
+result = request("bundleIds?"+urllib.parse.urlencode({"filter[identifier]":"dev.fancontrol.watch.watchkitapp"}))
+assert len(result["data"]) == 1, "Watch bundle ID missing"
+watch_bundle = result["data"][0]["id"]
+capabilities = request("bundleIds/"+watch_bundle+"/bundleIdCapabilities")
+if not any(item["attributes"]["capabilityType"] == "PUSH_NOTIFICATIONS" for item in capabilities["data"]):
+    request("bundleIdCapabilities", {"data":{"type":"bundleIdCapabilities",
+        "attributes":{"capabilityType":"PUSH_NOTIFICATIONS"},
+        "relationships":{"bundleId":{"data":{"type":"bundleIds","id":watch_bundle}}}}})
+    print("Enabled watch app Push Notifications capability")
+else:
+    print("Watch app Push Notifications capability already enabled")
