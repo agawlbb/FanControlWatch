@@ -7,7 +7,19 @@
 - Added a persistent push receipt/outbox history and Settings diagnostics. HA send attempts, relay/APNs results, watch receipts, save results and first app selection are correlated separately. Missing receipts remain unknown.
 - HA's test harness uses explicit uv 0.13.4/Pillow 13.0.0 security overrides, validated in its own CI. This does not change deployed HA dependencies.
 
-Implementation and remaining hardware checks: BUILD-14.md. Wear OS audit items remain deferred under its pause.
+Implementation, successful 36-test/signed/simulator/archive build evidence and remaining hardware checks: BUILD-14.md. Wear OS audit items remain deferred under its pause. Physical push receipt and first-display behavior still require an installed-watch check with the updated HA/relay; automated tests do not establish them.
+
+| Audited Apple control | Final availability rule |
+| --- | --- |
+| Garage/trunk | Initial gray CLOSED accepts OPEN; moving OPEN/CLOSED presentation stays tappable. Same-toggle requests may supersede older work. |
+| Driving / Work Morning climate | Initial gray OFF accepts ON before any reading. |
+| Fan/light/switch/input_boolean power | Gray cached or assumed state accepts its opposite absolute intent. |
+| Fan speed | Cached or assumed speed accepts drafts before freshness; only speed bounds and conflicting pending work block adjustment. Pending ON still permits drafts. |
+| Script/scene Run | No initial observation/freshness gate; background target/readiness checks remain. |
+| Start/Stop, Leave, Horn, Podcast | Available immediately; conflicting pending work still blocks them. |
+| Sync exercise music | Requires a connection and no existing sync; unchanged, Spotify/music work remains paused. |
+| Pair, connection settings, forget connection, watch speaker, playback buttons | No observation-readiness disabling gates in the audited views; unchanged. |
+| Push diagnostics / report receipts | Available in Settings; reporting uses the captured paired connection and never controls a vehicle. |
 
 ## Follow-up batch — 0.3.0 (6)
 
