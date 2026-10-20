@@ -99,16 +99,21 @@ struct ControlsView: View {
             actionControl("leave", p.script_label ?? "Leave for work")
         }
     }
-    private func actionControl(_ action: String, _ label: String, compact: Bool = false) -> some View {
+    @ViewBuilder private func actionControl(_ action: String, _ label: String, compact: Bool = false) -> some View {
         let receipt = model.actionFeedback(action)
         let gray = ActionReceipts.isGray(receipt)
-        return Button { model.send(action, label: label) } label: {
+        let button = Button { model.send(action, label: label) } label: {
             Text(receipt == nil ? label : "Activated")
                 .frame(maxWidth: .infinity, minHeight: compact ? 32 : 40)
                 .foregroundStyle(gray ? Color.gray : Color.mint)
         }
         .tint(gray ? Color.gray.opacity(0.25) : Color.mint.opacity(0.18))
         .disabled(model.busy)
+        if compact {
+            button.buttonStyle(.plain)
+                .padding(.vertical, 6)
+                .background(gray ? Color.gray.opacity(0.12) : Color.mint.opacity(0.10), in: RoundedRectangle(cornerRadius: 22))
+        } else { button }
     }
     private func climate(_ p: Panel) -> some View {
         let on = model.observed["climate_on"] as? Bool == true

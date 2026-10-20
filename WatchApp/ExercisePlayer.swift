@@ -223,11 +223,14 @@ struct ExercisePlaybackView: View {
                     Button { player.skip(-1) } label: { Image(systemName: "backward.end.fill") }.accessibilityLabel("Previous track")
                     Button { player.toggle() } label: { Image(systemName: player.playing ? "pause.fill" : "play.fill") }.accessibilityLabel(player.playing ? "Pause" : "Play")
                     Button { player.skip(1) } label: { Image(systemName: "forward.end.fill") }.accessibilityLabel("Next track")
-                }.tint(.mint)
+                }.tint(.mint).controlSize(.small)
                 WatchVolume().frame(height: 28)
             } else if player.waiting {
                 Text(player.status).font(.caption2).foregroundStyle(.gray)
-                Button("Use watch speaker") { player.useSpeaker() }.font(.caption2)
+                Button("Use watch speaker") { player.useSpeaker() }
+                    .font(.caption2).buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, minHeight: 36)
+                    .background(Color.gray.opacity(0.25), in: RoundedRectangle(cornerRadius: 18))
             } else if !player.status.isEmpty {
                 Text(player.status).font(.caption2).foregroundStyle(.gray)
             }
