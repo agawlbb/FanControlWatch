@@ -37,6 +37,8 @@ import FanControlCore
         stateFresh = false
     }
     func enter(resetSelection: Bool = true) {
+        // A refresh launch can instantiate the view without user-visible entry.
+        guard WKExtension.shared().applicationState == .active else { return }
         leave(resetReceipts: resetSelection); visible = true
         if resetSelection { connection = Vault.load(); sessionTarget = nil; feedback = nil }
         observed = connection.flatMap { c in device.map { ObservationCache.shared.load(c, $0) } } ?? [:]

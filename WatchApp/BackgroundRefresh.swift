@@ -10,7 +10,7 @@ import FanControlCore
     }
     static func run() async {
         defer { schedule() }
-        guard let original = Vault.load() else { return }
+        guard WKExtension.shared().applicationState != .active, let original = Vault.load() else { return }
         let configuration = URLSessionConfiguration.ephemeral
         // Disallow the watch's built-in cellular radio, without rejecting a
         // phone proxy merely because its upstream connection is expensive.
@@ -23,7 +23,7 @@ import FanControlCore
             config["token"] = original.token; config["watch_id"] = original.watch_id
             let next = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: config)).validated()
             try Task.checkCancellation()
-            guard Vault.load() == original else { return }
+            guard WKExtension.shared().applicationState != .active, Vault.load() == original else { return }
             try Vault.save(next)
             let reader = Integration(next, http: HTTP(configuration: configuration))
             let deadline = Date().addingTimeInterval(18)
