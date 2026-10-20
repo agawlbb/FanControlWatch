@@ -142,7 +142,7 @@ import FanControlCore
             var complete = config; complete["token"] = old.token; complete["watch_id"] = old.watch_id
             let next = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: complete)).validated()
             guard ticket == generation, !Task.isCancelled, canRefresh else { return }
-            if next != old {
+            if !next.sameTarget(as: old) {
                 ExercisePlayer.shared.stopIfTargetChanged(next)
                 if next.devices != old.devices || next.watch_id != old.watch_id { actionReceipts.clear() }
                 try Vault.save(next); connection = next; observed = [:]; feedback = nil
@@ -229,7 +229,7 @@ import FanControlCore
             do {
                 while Date() < deadline {
                     try Task.checkCancellation()
-                    guard ticket == generation, connection == c, visible else { throw CancellationError() }
+                    guard ticket == generation, connection?.sameTarget(as: c) == true, visible else { throw CancellationError() }
                     // Revalidate the exact configuration before dispatch; never redirect an old tap.
                     let config = try await client.request(["action": "config", "platform": "watch_os"])
                     var full = config; full["token"] = c.token; full["watch_id"] = c.watch_id
@@ -238,7 +238,7 @@ import FanControlCore
                     // Keep polling the same approved operation, never a new target.
                     var comparable = live
                     if action == "stop_exercise" && stopAccepted { comparable.entity = c.entity; comparable.revision = c.revision }
-                    guard comparable == c else { throw ControlError.invalidConfiguration }
+                    guard comparable.sameTarget(as: c) else { throw ControlError.invalidConfiguration }
                     try Task.checkCancellation()
                     guard ticket == generation, feedback?.id == f.id else { return }
                     var state: [String: Any] = [:]
@@ -257,7 +257,7 @@ import FanControlCore
                         else { available = ready && state[action == "leave" ? "script_available" : "start_available"] as? Bool == true }
                     } else { available = ["on", "off"].contains(state["state"] as? String ?? "") || ["script", "scene"].contains(d.domain) && !["unknown", "unavailable", ""].contains(state["state"] as? String ?? "") }
                     try Task.checkCancellation()
-                    guard ticket == generation, feedback?.id == f.id, connection == c else { return }
+                    guard ticket == generation, feedback?.id == f.id, connection?.sameTarget(as: c) == true else { return }
                     if available && (!sent || action == "stop_exercise") {
                         sent = true // Ambiguous responses must never replay one-shot actions.
                         var commandResponded = false

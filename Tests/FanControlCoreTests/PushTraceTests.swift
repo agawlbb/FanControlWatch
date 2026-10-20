@@ -59,14 +59,16 @@ final class PushTraceTests: XCTestCase {
     func testRevisionMetadataDoesNotInvalidateSameTargetButRolesAndCredentialsDo() throws {
         let original = try connection()
         var saved = original; saved.revision = nil
-        XCTAssertEqual(saved, original)
+        XCTAssertTrue(saved.sameTarget(as: original))
+        XCTAssertNotEqual(saved, original) // Persistence still rejects an older saved snapshot.
         saved.revision = 8
-        XCTAssertEqual(saved, original)
+        XCTAssertTrue(saved.sameTarget(as: original))
+        XCTAssertNotEqual(saved, original)
         saved.entity = ""
-        XCTAssertNotEqual(saved, original)
+        XCTAssertFalse(saved.sameTarget(as: original))
         saved = original; saved.token = String(repeating: "c", count: 64)
-        XCTAssertNotEqual(saved, original)
+        XCTAssertFalse(saved.sameTarget(as: original))
         saved = original; saved.devices = []
-        XCTAssertNotEqual(saved, original)
+        XCTAssertFalse(saved.sameTarget(as: original))
     }
 }

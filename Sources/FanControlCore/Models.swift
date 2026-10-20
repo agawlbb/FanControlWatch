@@ -37,9 +37,9 @@ public struct Connection: Codable, Equatable, Sendable {
     public var revision: Int?
     // Revision is diagnostic metadata. An unchanged approved target must not
     // reject an early tap merely because an older saved record has no revision.
-    public static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.url == rhs.url && lhs.remote_url == rhs.remote_url && lhs.token == rhs.token &&
-        lhs.watch_id == rhs.watch_id && lhs.entity == rhs.entity && lhs.devices == rhs.devices
+    public func sameTarget(as other: Self) -> Bool {
+        url == other.url && remote_url == other.remote_url && token == other.token &&
+        watch_id == other.watch_id && entity == other.entity && devices == other.devices
     }
     public var active: Device? { devices.first { $0.entity == entity } }
     public func validated() throws -> Self {
