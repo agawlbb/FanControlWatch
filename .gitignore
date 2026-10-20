@@ -7,3 +7,10 @@ build/
 *.p12
 *.mobileprovision
 .env*
+private-music/
+*.mp3
+*.m4a
+*.aac
+*.wav
+*.aiff
+*.flac

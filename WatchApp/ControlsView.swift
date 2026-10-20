@@ -89,6 +89,7 @@ struct ControlsView: View {
             }
         } else if p.type == "exercise" {
             actionControl("start_exercise", "Start exercise")
+            ExercisePlaybackView()
             actionControl("stop_exercise", "Stop exercise")
         } else {
             let battery = model.observed["battery"] as? Double
@@ -127,6 +128,7 @@ struct ControlsView: View {
 
 struct SetupView: View {
     @ObservedObject var model: WatchModel
+    @ObservedObject private var player = ExercisePlayer.shared
     @Environment(\.dismiss) private var dismiss
     @State private var address = ""
     @State private var status = "Enter your Home Assistant local or HTTPS address."
@@ -137,6 +139,10 @@ struct SetupView: View {
             if model.connection != nil {
                 Text("Paired. Configure devices and panels in Home Assistant.")
                 Text("Watch ID: \(model.connection!.watch_id)").font(.caption2)
+                Button(player.syncing ? "Syncing music…" : "Sync exercise music") {
+                    if let c = model.connection { player.sync(c) }
+                }.disabled(player.syncing)
+                if !player.status.isEmpty { Text(player.status).font(.caption2) }
                 Button("Forget connection", role: .destructive) { model.forget(); dismiss() }
             } else {
                 TextField("https://home.example", text: $address).textInputAutocapitalization(.never).autocorrectionDisabled()

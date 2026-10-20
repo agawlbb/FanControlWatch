@@ -26,14 +26,22 @@ final class ActionReceiptTests: XCTestCase {
         XCTAssertFalse(Evidence.matches("honk", ["accepted":true], panel:nil))
         XCTAssertFalse(Evidence.matches("podcast", ["accepted":true], panel:nil))
     }
-    func testStopAcceptsPendingButRejectsTerminalRejections() {
-        for status in ["pending", "complete"] {
+    func testStopRequiresCompletionAndRejectsPendingOrTerminalRejections() {
+        for status in ["complete"] {
             XCTAssertTrue(ActionReceipts.acknowledges("stop_exercise", response:["operation_status":status]))
         }
-        for status in ["cancelled", "expired", "unsupported", "unknown", ""] {
+        for status in ["pending", "cancelled", "expired", "unsupported", "unknown", ""] {
             XCTAssertFalse(ActionReceipts.acknowledges("stop_exercise", response:["operation_status":status]))
         }
         XCTAssertFalse(ActionReceipts.acknowledges("stop_exercise", response:[:]))
+    }
+    func testStartRequiresAnExplicitSuccessfulLockDispatch() {
+        XCTAssertTrue(ActionReceipts.acknowledges("start_exercise", response:["steps":[["step":"lock", "status":"requested"]]]))
+        for status in ["pending", "unconfirmed", "skipped", ""] {
+            XCTAssertFalse(ActionReceipts.acknowledges("start_exercise", response:["steps":[["step":"lock", "status":status]]]))
+        }
+        XCTAssertFalse(ActionReceipts.acknowledges("start_exercise", response:["locked":true]))
+        XCTAssertFalse(ActionReceipts.acknowledges("start_exercise", response:[:]))
     }
     func testReceiptsRemainIndependentUntilSessionEnds() {
         var receipts = ActionReceipts()

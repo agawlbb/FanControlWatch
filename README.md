@@ -10,6 +10,48 @@ Requested outcomes appear immediately in gray. Confirmed HA evidence is separate
 
 ## Pairing
 
+### Exercise local music — 0.5.0 source update
+
+Exercise has Start at the top, playback or headset guidance in the middle, and
+Stop at the bottom. Start locks the configured car and independently starts the
+offline playlist through **Joseph's Buds2 Pro** once it is the active audio route.
+The middle offers **Use watch speaker** while waiting. This permits built-in
+speaker output for this session only; watchOS manages routing (use Control Center
+to select Watch speaker if another output is selected). A lost route pauses audio
+and restores the choice. After playback begins, Previous / Play-Pause / Next and
+Apple's local volume control appear. Select the volume control and turn the Crown.
+Tracks play in filename order and repeat the list. No Spotify request is sent.
+
+Stop immediately stops audio and asks HA to unlock, enable climate and request
+63°F (converted to HA's climate units). Its gray Activated receipt turns teal only
+after HA observes unlocked and climate on and acknowledges the temperature
+request. Temperature equality is deliberately ignored. Start turns teal after HA
+acknowledges its lock service call. Neither receipt independently proves physical
+vehicle state. At one minute, HA passively checks locked for Start or unlocked and
+climate on for Stop, without waking or comparing temperature. Mismatch/unknown
+creates a **Home Assistant persistent notification**, not a phone/watch push alert.
+New commands supersede old checks. Existing Wear OS behavior is unchanged.
+
+Music is **never bundled with public source or CI artifacts**. Put DRM-free MP3,
+M4A (AAC), or AAC files in HA's **`/config/fan_control_music/`** folder, outside
+`www`, `custom_components`, and any source checkout. Name them `01 First.mp3`,
+`02 Second.m4a`, etc. (use two-digit prefixes). The local Windows staging folder
+is `C:\Users\mailb\StudioProjects\FanControl\private-music`; copy its contents
+privately to HA's folder. Both repositories ignore supported audio extensions.
+
+After installing the matching HA source update, long-press a watch panel, open
+**Connection settings → Sync exercise music**, and keep the app open until it says
+the tracks are ready offline. Transfer uses the paired encrypted protocol and is
+restricted to Apple watches approved for an Exercise panel. Each file is SHA-256
+verified before the library is replaced; an interrupted transfer keeps the prior
+playlist. Limits: 25 tracks, 30 MiB per track, 200 MiB total. Sync again after changing
+tracks. Forgetting the connection deletes that watch's local music copy.
+
+Apple API reference: [background audio](https://developer.apple.com/documentation/watchkit/playing-background-audio),
+[audio activation](https://developer.apple.com/documentation/avfaudio/avaudiosession/activate(options:completionhandler:)),
+[native volume control](https://developer.apple.com/documentation/watchkit/wkinterfacevolumecontrol).
+Build and physical-watch verification results are recorded in VERIFICATION.md.
+
 ### Pending source update: Driving Podcast action
 
 Driving now lays out Garage / Trunk, Climate / Honk Horn, and Podcast / an empty cell in two columns and three rows. In HA's native Driving panel editor, select the optional **Podcast script** (for example `script.baby_blue_podcast_play`). The watch sends that configured script once per tap, without requiring the car to be awake or selecting a Spotify device. Gray Activated followed by teal Activated acknowledges HA dispatch only; it does not confirm script completion or podcast playback. Existing panels remain valid without a podcast script. This source update has not been built, tested or deployed, at the user's request. Wear OS remains paused and unchanged by this update.

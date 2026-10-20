@@ -88,6 +88,7 @@ import FanControlCore
     }
     private func panelBody(_ p: Panel, command: String? = nil) -> [String: Any] {
         var body: [String: Any] = ["action": command == nil ? "panel_state" : "panel_command", "panel_id": p.id]
+        if p.type == "exercise" { body["music_mode"] = "local" }
         if let command { body["command"] = command; body["panel_config"] = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) }
         return body
     }
@@ -103,6 +104,7 @@ import FanControlCore
             let next = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: complete)).validated()
             guard ticket == generation, !Task.isCancelled, canRefresh else { return }
             if next != old {
+                ExercisePlayer.shared.stopIfTargetChanged(next)
                 if next.devices != old.devices || next.watch_id != old.watch_id { actionReceipts.clear() }
                 try Vault.save(next); connection = next; observed = [:]; feedback = nil
                 if !next.devices.contains(where: { $0.entity == sessionTarget }) { sessionTarget = nil }
@@ -161,16 +163,16 @@ import FanControlCore
         if receiptAction { actionReceipts.begin(f) }
         feedback = f; message = "Requested"; musicEvidence = ""
         let ticket = generation
-        if action == "start_exercise", let url = URL(string: "spotify:") {
-            WKExtension.shared().openSystemURL(url)
-            musicEvidence = "Spotify playback unknown"
+        if action == "start_exercise" {
+            let target = c.watch_id + "|" + d.entity + "|" + ((try? String(data: JSONEncoder().encode(d.panel), encoding: .utf8)) ?? "")
+            ExercisePlayer.shared.start(c, target: target)
         }
+        if action == "stop_exercise" { ExercisePlayer.shared.stop() }
         command = Task {
             let deadline = Date().addingTimeInterval(60)
             let operationID = UUID().uuidString.lowercased()
             let issued = Int(Date().timeIntervalSince1970 * 1000)
             var sent = false
-            var musicSent = false
             var completed = false
             var receiptAccepted = false
             defer {
@@ -195,7 +197,8 @@ import FanControlCore
                     guard ticket == generation, feedback?.id == f.id else { return }
                     var state = try await client.request(stateBody(d))
                     var body = d.panel.map { panelBody($0, command: action) } ?? ["action": "command", "entity": d.entity, "command": action]
-                    if action == "stop_exercise" { body["operation_id"] = operationID; body["issued_at_ms"] = issued }
+                    if action == "start_exercise" || action == "stop_exercise" { body["music_mode"] = "local" }
+                    if action == "start_exercise" || action == "stop_exercise" { body["operation_id"] = operationID; body["issued_at_ms"] = issued }
                     let available: Bool
                     if let p = d.panel, p.type != "fan" {
                         let ready = !p.vehicle || state["vehicle_ready"] as? Bool == true || action.hasPrefix("garage_")
@@ -220,19 +223,18 @@ import FanControlCore
                         }
                         if receiptAction && commandResponded {
                             guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
-                            guard ActionReceipts.acknowledges(action, response: state) else { throw ControlError.notConfirmed }
+                            guard ActionReceipts.acknowledges(action, response: state) else {
+                                if action != "stop_exercise" || state["operation_status"] as? String != "pending" { throw ControlError.notConfirmed }
+                                // Keep polling this operation; acceptance alone is not completion.
+                                try await Task.sleep(nanoseconds: 700_000_000)
+                                continue
+                            }
                             receiptAccepted = true; actionReceipts.finish(f, accepted: true)
                         }
                         if action == "activate" || action == "leave" || action == "honk" || action == "podcast" || action == "stop_exercise" && receiptAccepted {
                             guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                             feedback?.phase = .accepted; message = "Request accepted"; return
                         }
-                    }
-                    if action == "start_exercise" && !musicSent && sent {
-                        musicSent = true
-                        // Music has its own one-shot evidence and cannot confirm vehicle state.
-                        do { _ = try await client.request(panelBody(d.panel!, command: "start_music")); musicEvidence = "Music dispatch accepted · playback unknown" }
-                        catch { musicEvidence = "Music not confirmed" }
                     }
                     guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                     if receiptAccepted { feedback?.phase = .accepted; message = ""; return }
@@ -259,7 +261,7 @@ import FanControlCore
         if busy { feedback?.phase = .unconfirmed; message = "Not confirmed" }
     }
     func paired(_ value: Connection) { connection = value; enter() }
-    func forget() { leave(); ObservationCache.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
+    func forget() { leave(); ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
 }
 
 

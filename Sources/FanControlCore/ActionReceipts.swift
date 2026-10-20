@@ -26,7 +26,11 @@ public struct ActionReceipts {
     public static func acknowledges(_ command: String, response: [String: Any]) -> Bool {
         guard applies(command) else { return false }
         if command == "stop_exercise" {
-            return ["pending", "complete"].contains(response["operation_status"] as? String ?? "")
+            return response["operation_status"] as? String == "complete"
+        }
+        if command == "start_exercise" {
+            guard let steps = response["steps"] as? [[String: String]] else { return false }
+            return steps.contains { $0["step"] == "lock" && $0["status"] == "requested" }
         }
         // Only call with the authenticated response to this command's POST,
         // never with a state/config read, network completion or caught error.
