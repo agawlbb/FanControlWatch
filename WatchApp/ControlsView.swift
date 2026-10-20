@@ -8,7 +8,9 @@ struct ControlsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
-                if let d = model.device {
+                if model.showingSettings {
+                    SettingsPage(model: model, openConnection: { setup = true })
+                } else if let d = model.device {
                     if let p = d.panel, p.type == "driving" {
                         let rgb = p.color ?? [92, 225, 193]
                         Rectangle().fill(Color(red: Double(rgb[0])/255, green: Double(rgb[1])/255, blue: Double(rgb[2])/255)).frame(height: 5).accessibilityHidden(true)
@@ -30,11 +32,10 @@ struct ControlsView: View {
             guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
             model.swipe(value.translation.width < 0 ? 1 : -1)
         })
-        .contextMenu { Button("Connection settings") { setup = true } }
         .onOpenURL { url in
             if url.scheme == "fancontrol", url.host == "active" { model.enter() }
         }
-        .sheet(isPresented: $setup, onDismiss: { model.enter() }) { SetupView(model: model) }
+        .sheet(isPresented: $setup, onDismiss: { model.enter(resetSelection: false) }) { SetupView(model: model) }
         .onAppear { model.enter() }
         .onDisappear { model.leave() }
         .onChange(of: scenePhase) { _, phase in if phase == .active && !setup { model.enter() } else { model.leave() } }
@@ -127,6 +128,22 @@ struct ControlsView: View {
         let matching = model.feedback?.command.hasPrefix(role + "_") == true
         let action = matching && model.feedback?.phase != .confirmed ? ToggleIntent.opposite(model.feedback!.command)! : role + "_" + Evidence.coverIntent(observed)
         return control(action, title + "\n" + (["open", "closed", "opening", "closing"].contains(observed ?? "") ? observed!.uppercased() : "CLOSED"), known: observed == "open" || observed == "closed", enabled: matching || observed != "opening" && observed != "closing")
+    }
+}
+
+private struct SettingsPage: View {
+    @ObservedObject var model: WatchModel
+    @ObservedObject private var player = ExercisePlayer.shared
+    let openConnection: () -> Void
+    var body: some View {
+        VStack(spacing: 10) {
+            Label("Settings", systemImage: "gearshape").font(.headline)
+            Button("Connection settings", action: openConnection)
+            Button(player.syncing ? "Syncing music…" : "Sync exercise music") {
+                if let c = model.connection { player.sync(c) }
+            }.disabled(player.syncing || model.connection == nil)
+            if !player.status.isEmpty { Text(player.status).font(.caption2).foregroundStyle(.secondary) }
+        }
     }
 }
 

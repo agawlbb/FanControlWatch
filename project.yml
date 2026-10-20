@@ -9,7 +9,7 @@ settings:
     SWIFT_VERSION: '5.9'
     DEVELOPMENT_TEAM: FKR675M7PM
     MARKETING_VERSION: '0.5.0'
-    CURRENT_PROJECT_VERSION: '10'
+    CURRENT_PROJECT_VERSION: '11'
 packages:
   FanControlCore:
     path: .

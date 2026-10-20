@@ -39,8 +39,8 @@ M4A (AAC), or AAC files in HA's **`/config/fan_control_music/`** folder, outside
 is `C:\Users\mailb\StudioProjects\FanControl\private-music`; copy its contents
 privately to HA's folder. Both repositories ignore supported audio extensions.
 
-After installing the matching HA source update, long-press a watch panel, open
-**Connection settings → Sync exercise music**, and keep the app open until it says
+After installing the matching HA source update, swipe left or right through the
+panels to the separate **Settings** page, choose **Sync exercise music**, and keep the app open until it says
 the tracks are ready offline. Transfer uses the paired encrypted protocol and is
 restricted to Apple watches approved for an Exercise panel. Each file is SHA-256
 verified before the library is replaced; an interrupted transfer keeps the prior

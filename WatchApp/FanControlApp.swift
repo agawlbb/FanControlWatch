@@ -24,7 +24,11 @@ import FanControlCore
     private var generation = UUID()
     private var visible = false
     @Published private var sessionTarget: String?
-    var device: Device? { connection?.devices.first { $0.entity == (sessionTarget ?? connection?.entity) } }
+    @Published private(set) var showingSettings = false
+    var device: Device? {
+        guard !showingSettings else { return nil }
+        return connection?.devices.first { $0.entity == (sessionTarget ?? connection?.entity) }
+    }
     var busy: Bool { feedback?.phase == .pending }
     // Action requests can start before the first observation. Keep entry reads
     // running so the settled visible-entry wake cannot be blocked by that tap.
@@ -40,9 +44,11 @@ import FanControlCore
         // A refresh launch can instantiate the view without user-visible entry.
         guard WKExtension.shared().applicationState == .active else { return }
         leave(resetReceipts: resetSelection); visible = true
-        if resetSelection { connection = Vault.load(); sessionTarget = nil; feedback = nil }
+        if resetSelection { connection = Vault.load(); sessionTarget = nil; showingSettings = false; feedback = nil }
         observed = connection.flatMap { c in device.map { ObservationCache.shared.load(c, $0) } } ?? [:]
         BackgroundRefresh.schedule()
+        // Settings is local navigation, with no device reads, entry wake or controls.
+        if showingSettings { observed = [:]; return }
         #if DEBUG
         if let preview = ControlPreview.snapshot() {
             connection = preview.0; observed = preview.1; stateFresh = true
@@ -55,6 +61,7 @@ import FanControlCore
                 feedback = Feedback(target: preview.0.identity, command: "climate_off", label: "Climate OFF")
             }
             let args = ProcessInfo.processInfo.arguments
+            if args.contains("--preview-settings") { showingSettings = true; observed = [:]; return }
             if args.contains("--preview-action-pending") || args.contains("--preview-action-accepted") {
                 let action = args.contains("--preview-exercise") ? "start_exercise" : "honk"
                 let f = Feedback(target: preview.0.watch_id + "|panel.preview", command: action, label: "Activated")
@@ -85,10 +92,14 @@ import FanControlCore
         }
     }
     func swipe(_ direction: Int) {
-        guard let c = connection, let current = device,
-              let index = c.devices.firstIndex(of: current), c.devices.count > 1 else { return }
-        let next = (index + direction + c.devices.count) % c.devices.count
-        leave(resetReceipts: false); sessionTarget = c.devices[next].entity; observed = [:]; feedback = nil
+        guard let c = connection else { return }
+        let current: WatchPage = showingSettings ? .settings : .device(sessionTarget ?? c.entity)
+        let next = WatchPage.next(current, entities: c.devices.map(\.entity), direction: direction)
+        leave(resetReceipts: false); observed = [:]; feedback = nil
+        switch next {
+        case .settings: showingSettings = true
+        case .device(let entity): showingSettings = false; sessionTarget = entity
+        }
         enter(resetSelection: false)
     }
     private func panelBody(_ p: Panel, command: String? = nil) -> [String: Any] {
@@ -271,7 +282,7 @@ import FanControlCore
         if busy { feedback?.phase = .unconfirmed; message = "Not confirmed" }
     }
     func paired(_ value: Connection) { connection = value; enter() }
-    func forget() { leave(); ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
+    func forget() { leave(); showingSettings = false; ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
 }
 
 
