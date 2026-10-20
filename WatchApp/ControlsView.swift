@@ -104,14 +104,13 @@ struct ControlsView: View {
         let gray = ActionReceipts.isGray(receipt)
         let button = Button { model.send(action, label: label) } label: {
             Text(receipt == nil ? label : "Activated")
-                .frame(maxWidth: .infinity, minHeight: compact ? 32 : 40)
+                .frame(maxWidth: .infinity, minHeight: compact ? 44 : 40)
                 .foregroundStyle(gray ? Color.gray : Color.mint)
         }
         .tint(gray ? Color.gray.opacity(0.25) : Color.mint.opacity(0.18))
         .disabled(model.busy)
         if compact {
             button.buttonStyle(.plain)
-                .padding(.vertical, 6)
                 .background(gray ? Color.gray.opacity(0.12) : Color.mint.opacity(0.10), in: RoundedRectangle(cornerRadius: 22))
         } else { button }
     }
