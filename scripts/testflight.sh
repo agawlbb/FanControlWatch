@@ -50,6 +50,9 @@ with tempfile.TemporaryDirectory() as temp:
     app=next((Path(temp)/'Payload').glob('*.app'))
     subprocess.run(['codesign','--verify','--deep','--strict',str(app)],check=True)
     watch=next((app/'Watch').glob('*.app'))
+    entitlements=plistlib.loads(subprocess.run(['codesign','-d','--entitlements',':-',str(watch)],capture_output=True,check=True).stdout)
+    assert entitlements.get('aps-environment')=='production', 'Watch distribution push entitlement missing'
+    assert plistlib.loads((watch/'Info.plist').read_bytes())['FanControlAPNSEnvironment']=='production', 'Watch APNs environment mismatch'
     for bundle in [app,watch,*list((watch/'PlugIns').glob('*.appex'))]:
         info=plistlib.loads((bundle/'Info.plist').read_bytes())
         assert info['CFBundleIdentifier'] in ['dev.fancontrol.watch','dev.fancontrol.watch.watchkitapp','dev.fancontrol.watch.watchkitapp.activepanel']

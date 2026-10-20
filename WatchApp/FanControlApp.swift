@@ -4,6 +4,7 @@ import UserNotifications
 import FanControlCore
 
 @main struct FanControlApp: App {
+    @WKApplicationDelegateAdaptor(PushNotifications.self) private var pushDelegate
     init() { UNUserNotificationCenter.current().delegate = ExerciseAlerts.shared }
     var body: some Scene {
         WindowGroup { ControlsView() }
@@ -25,6 +26,7 @@ import FanControlCore
     private var draft: Task<Void, Never>?
     private var generation = UUID()
     private var visible = false
+    private var wakeAfter: ContinuousClock.Instant?
     @Published private var sessionTarget: String?
     @Published private(set) var showingSettings = false
     var device: Device? {
@@ -42,13 +44,14 @@ import FanControlCore
         if feedback?.phase == .pending { feedback?.phase = .unconfirmed; message = "Not confirmed" }
         stateFresh = false
     }
-    func enter(resetSelection: Bool = true) {
+    func enter(resetSelection: Bool = true, allowEntryWake: Bool = true) {
         // A refresh launch can instantiate the view without user-visible entry.
         guard WKExtension.shared().applicationState == .active else { return }
         leave(resetReceipts: resetSelection); visible = true
-        if resetSelection { connection = Vault.load(); sessionTarget = nil; showingSettings = false; feedback = nil }
+        if resetSelection { connection = Vault.load(); sessionTarget = nil; showingSettings = false; feedback = nil; wakeAfter = nil }
         observed = connection.flatMap { c in device.map { ObservationCache.shared.load(c, $0) } } ?? [:]
         BackgroundRefresh.schedule()
+        PushNotifications.register()
         // Settings is local navigation, with no device reads, entry wake or controls.
         if showingSettings { observed = [:]; return }
         #if DEBUG
@@ -80,11 +83,16 @@ import FanControlCore
         work = Task {
             // Resolve HA's current selection before the entry wake. A saved
             // connection may still name a different car after a watch-face tap.
-            await refresh(ticket)
-            do { try await Task.sleep(nanoseconds: 400_000_000) } catch { return }
+            await refresh(ticket, allowEntryWake: allowEntryWake)
+            // Primary entry has no artificial delay. Swipes must remain visible
+            // for 1.5 seconds, including time spent resolving HA configuration.
+            if let deadline = wakeAfter {
+                do { try await Task.sleep(until: deadline, clock: .continuous) } catch { return }
+            }
             var wakeAttempted = false
             while !Task.isCancelled && ticket == generation && visible {
-                if stateFresh, !wakeAttempted, let p = device?.panel, p.vehicle {
+                if allowEntryWake, stateFresh, !wakeAttempted, let p = device?.panel, p.vehicle,
+                   WKExtension.shared().applicationState == .active {
                     wakeAttempted = true
                     _ = try? await client?.request(panelBody(p, command: "wake"))
                 }
@@ -102,6 +110,7 @@ import FanControlCore
         case .settings: showingSettings = true
         case .device(let entity): showingSettings = false; sessionTarget = entity
         }
+        wakeAfter = .now.advanced(by: .milliseconds(1500))
         enter(resetSelection: false)
     }
     private func panelBody(_ p: Panel, command: String? = nil) -> [String: Any] {
@@ -114,7 +123,7 @@ import FanControlCore
         if let p = d.panel { return panelBody(p) }
         return ["action": "state", "entity": d.entity]
     }
-    private func refresh(_ ticket: UUID) async {
+    private func refresh(_ ticket: UUID, allowEntryWake: Bool = false) async {
         guard let old = connection, let client else { return }
         do {
             let config = try await client.request(["action": "config", "platform": "watch_os"])
@@ -126,7 +135,9 @@ import FanControlCore
                 if next.devices != old.devices || next.watch_id != old.watch_id { actionReceipts.clear() }
                 try Vault.save(next); connection = next; observed = [:]; feedback = nil
                 if !next.devices.contains(where: { $0.entity == sessionTarget }) { sessionTarget = nil }
-                enter(resetSelection: false); return
+                // A configuration refresh (including a push-induced change)
+                // must never be treated as a new foreground vehicle entry.
+                enter(resetSelection: false, allowEntryWake: allowEntryWake); return
             }
             guard let d = device else { observed = [:]; return }
             let state = try await client.request(stateBody(d))
