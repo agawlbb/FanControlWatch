@@ -21,4 +21,8 @@ xcrun simctl terminate "$udid" dev.fancontrol.watch
 xcrun simctl launch "$udid" dev.fancontrol.watch --preview-companion
 sleep 3
 xcrun simctl io "$udid" screenshot build/phone-companion.png
+xcrun simctl terminate "$udid" dev.fancontrol.watch
+xcrun simctl launch "$udid" dev.fancontrol.watch --preview-companion --preview-settings
+sleep 3
+xcrun simctl io "$udid" screenshot build/phone-settings.png
 xcrun simctl shutdown "$udid"

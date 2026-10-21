@@ -6,6 +6,7 @@ struct CompanionView: View {
     @ObservedObject private var model = PhoneModel.shared
     @ObservedObject private var library = PhoneLibrary.shared
     @State private var importing = false
+    @State private var showingSettings = false
     @State private var editMode: EditMode = .active
     var body: some View {
         NavigationStack {
@@ -37,9 +38,6 @@ struct CompanionView: View {
                             }
                         }
                     }
-                    Section {
-                        NavigationLink("Settings") { SettingsView() }
-                    }
                 }
                 if !model.error.isEmpty { Text(model.error).foregroundStyle(.red) }
                 if !library.error.isEmpty { Text(library.error).foregroundStyle(.red) }
@@ -53,6 +51,14 @@ struct CompanionView: View {
             .environment(\.editMode, $editMode)
             .navigationTitle("Fan Control")
             .tint(.mint)
+            .toolbar {
+                if model.connection != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showingSettings = true } label: { Image(systemName: "gearshape") }
+                            .accessibilityLabel("Settings")
+                    }
+                }
+            }
             .refreshable { _ = await model.refresh() }
             .fileImporter(isPresented: $importing, allowedContentTypes: [.mp3, .mpeg4Audio, UTType(filenameExtension: "aac") ?? .audio], allowsMultipleSelection: true) { result in
                 switch result {
@@ -60,6 +66,17 @@ struct CompanionView: View {
                 case .failure: library.error = "Import failed"
                 }
             }
+        }
+        .sheet(isPresented: $showingSettings) {
+            NavigationStack {
+                SettingsView()
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showingSettings = false } } }
+            }.environment(\.editMode, .constant(.inactive))
+        }
+        .onAppear {
+            #if DEBUG && targetEnvironment(simulator)
+            if ProcessInfo.processInfo.arguments.contains("--preview-settings") { showingSettings = true }
+            #endif
         }
     }
 }
