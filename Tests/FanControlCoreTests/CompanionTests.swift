@@ -9,6 +9,8 @@ final class CompanionTests: XCTestCase {
         XCTAssertThrowsError(try OfflinePlaylist(watchID: "watch", tracks: [a, a]))
         XCTAssertThrowsError(try OfflinePlaylist(watchID: "watch", tracks: Array(repeating: a, count: 26)))
         XCTAssertNoThrow(try OfflinePlaylist(watchID: "watch", tracks: []))
+        let oversized = ExerciseTrack(name: "huge.mp3", sha256: String(repeating: "d", count: 64), size: Int.max)
+        XCTAssertThrowsError(try OfflinePlaylist(watchID: "watch", tracks: [oversized]))
     }
     func testSnapshotKeepsReceiverCredentialAndRejectsOtherWatchOrServer() throws {
         let config: [String: Any] = ["url": "https://example.invalid", "entity": "fan.test",

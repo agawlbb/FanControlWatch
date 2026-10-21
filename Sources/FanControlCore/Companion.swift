@@ -31,7 +31,7 @@ public struct CompanionSnapshot: Codable, Sendable {
     }
     public func resolved(for original: Connection) throws -> Connection {
         guard watchID == original.watch_id, server == original.url else { throw ControlError.invalidConfiguration }
-        var config = try JSONSerialization.jsonObject(with: configuration) as! [String: Any]
+        guard var config = try JSONSerialization.jsonObject(with: configuration) as? [String: Any] else { throw ControlError.invalidResponse }
         config["watch_id"] = original.watch_id; config["token"] = original.token
         config["companion"] = original.companion
         return try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: config)).validated()
@@ -47,8 +47,8 @@ public struct OfflinePlaylist: Codable, Equatable, Sendable {
         self.id = id; self.watchID = watchID; self.generation = generation; self.tracks = tracks; try validate()
     }
     public func validate() throws {
-        guard tracks.count <= 25, Set(tracks.map(\.fileName)).count == tracks.count,
-              tracks.reduce(0, { $0 + $1.size }) <= 200 * 1024 * 1024 else { throw ControlError.invalidResponse }
+        guard generation > 0, tracks.count <= 25, Set(tracks.map(\.fileName)).count == tracks.count else { throw ControlError.invalidResponse }
         try tracks.forEach { try $0.validate() }
+        guard tracks.reduce(0, { $0 + $1.size }) <= 200 * 1024 * 1024 else { throw ControlError.invalidResponse }
     }
 }
