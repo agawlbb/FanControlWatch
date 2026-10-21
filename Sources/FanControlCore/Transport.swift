@@ -48,7 +48,9 @@ public actor Integration {
         let aad = "fan-control-v1:\(connection.watch_id):\(timestamp):\(nonce)"
         let key = SymmetricKey(data: try Data(hex: connection.token))
         let box = try AES.GCM.seal(JSONSerialization.data(withJSONObject: body), using: key, authenticating: Data(aad.utf8))
-        let result = try await http.post(address, path: "api/fan_control/watch/request", body: ["watch_id": connection.watch_id, "timestamp": timestamp, "nonce": nonce, "iv": Data(box.nonce).base64EncodedString(), "ciphertext": (box.ciphertext + box.tag).base64EncodedString()], maximumResponseBytes: body["action"] as? String == "exercise_music_chunk" ? 524288 : 24576)
+        var packet: [String: Any] = ["watch_id": connection.watch_id, "timestamp": timestamp, "nonce": nonce, "iv": Data(box.nonce).base64EncodedString(), "ciphertext": (box.ciphertext + box.tag).base64EncodedString()]
+        if connection.companion == true { packet["credential"] = "companion" }
+        let result = try await http.post(address, path: "api/fan_control/watch/request", body: packet, maximumResponseBytes: body["action"] as? String == "exercise_music_chunk" ? 524288 : 262144)
         let plain = try open(result, key: key, aad: aad + ":response")
         guard let json = try JSONSerialization.jsonObject(with: plain) as? [String: Any] else { throw ControlError.invalidResponse }
         return json

@@ -8,12 +8,18 @@ the same toggle supersedes old UI work; stale callbacks cannot change its state.
 Keep speed adjustment behavior unchanged. This supersedes older pending-toggle
 disabling rules below.
 
-Request passive background refresh about every 15 minutes under watchOS scheduling.
-Read HA selection and fan observations only; never wake vehicles or send controls.
-Disable the watch cellular radio for these requests while permitting expensive
-phone-proxied routes. Verify phone-cellular routing on hardware. Persist only valid
-observations scoped to watch, credentials, server and exact device configuration;
-show cached state gray until a fresh observation. Spotify work is paused.
+## iPhone companion — October 21, 2026
+
+Routine push fetching and polling belong to the iPhone companion. The watch
+receives persisted snapshots and asks the phone once on visible entry; do not
+schedule watch background polling or restore a foreground refresh loop. Direct
+HA command validation/confirmation and settled visible vehicle entry remain on
+the watch. Background/phone work must never wake vehicles. Settings is no longer
+a swipe page; retain long-press setup/recovery. Use the saved fixed swipe order
+independently from HA's active panel. Keep the phone interface minimal; no notes
+or explanations of obvious controls. Imported audio is copied to the watch for
+offline playback; preserve the previous library until the complete replacement
+has been verified. Wear OS remains paused.
 
 
 ## Action receipt update â€” 0.3.1

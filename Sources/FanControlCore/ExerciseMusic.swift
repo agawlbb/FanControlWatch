@@ -4,6 +4,7 @@ public struct ExerciseTrack: Codable, Equatable, Sendable {
     public let name: String
     public let sha256: String
     public let size: Int
+    public init(name: String, sha256: String, size: Int) { self.name = name; self.sha256 = sha256; self.size = size }
     public var fileName: String { sha256 + "." + (name as NSString).pathExtension.lowercased() }
     public func validate() throws {
         guard !name.isEmpty, name.count <= 180, !name.contains("/"), !name.contains("\\"),

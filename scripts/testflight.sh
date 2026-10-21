@@ -25,7 +25,8 @@ for bundle, expected in [(apps[0],'dev.fancontrol.watch'),(watch[0],'dev.fancont
     info=plistlib.loads((bundle/'Info.plist').read_bytes())
     assert info['CFBundleIdentifier']==expected
     assert info['CFBundleVersion']==os.environ.get('BUILD_NUMBER','1')
-assert plistlib.loads((watch[0]/'Info.plist').read_bytes())['WKWatchOnly']
+assert plistlib.loads((watch[0]/'Info.plist').read_bytes())['WKRunsIndependentlyOfCompanionApp']
+assert not plistlib.loads((apps[0]/'Info.plist').read_bytes()).get('LSApplicationLaunchProhibited', False)
 extensions=list((watch[0]/'PlugIns').glob('*.appex'))
 assert len(extensions)==1, 'Missing active-panel complication'
 info=plistlib.loads((extensions[0]/'Info.plist').read_bytes())
@@ -50,6 +51,8 @@ with tempfile.TemporaryDirectory() as temp:
     app=next((Path(temp)/'Payload').glob('*.app'))
     subprocess.run(['codesign','--verify','--deep','--strict',str(app)],check=True)
     watch=next((app/'Watch').glob('*.app'))
+    phone_entitlements=plistlib.loads(subprocess.run(['codesign','-d','--entitlements',':-',str(app)],capture_output=True,check=True).stdout)
+    assert phone_entitlements.get('aps-environment')=='production', 'Phone distribution push entitlement missing'
     entitlements=plistlib.loads(subprocess.run(['codesign','-d','--entitlements',':-',str(watch)],capture_output=True,check=True).stdout)
     assert entitlements.get('aps-environment')=='production', 'Watch distribution push entitlement missing'
     assert plistlib.loads((watch/'Info.plist').read_bytes())['FanControlAPNSEnvironment']=='production', 'Watch APNs environment mismatch'

@@ -5,7 +5,7 @@ import FanControlCore
 
 @main struct FanControlApp: App {
     @WKApplicationDelegateAdaptor(PushNotifications.self) private var pushDelegate
-    init() { UNUserNotificationCenter.current().delegate = ExerciseAlerts.shared }
+    init() { UNUserNotificationCenter.current().delegate = ExerciseAlerts.shared; WatchCompanion.shared.start() }
     var body: some Scene {
         WindowGroup { ControlsView() }
             .backgroundTask(.appRefresh(BackgroundRefresh.identifier)) { await BackgroundRefresh.run() }
@@ -61,8 +61,7 @@ import FanControlCore
             PushDiagnostics.shared.record("opened", connection: connection)
         }
         observed = connection.flatMap { c in device.map { ObservationCache.shared.load(c, $0) } } ?? [:]
-        BackgroundRefresh.schedule()
-        PushNotifications.register()
+        WatchCompanion.shared.requestLatest()
         // Settings is local navigation, with no device reads, entry wake or controls.
         if showingSettings { observed = [:]; return }
         #if DEBUG
@@ -92,31 +91,29 @@ import FanControlCore
         client = Integration(connection)
         let ticket = generation
         work = Task {
-            Task { await PushDiagnostics.flush(connection) }
-            // Resolve HA's current selection before the entry wake. A saved
-            // connection may still name a different car after a watch-face tap.
-            await refresh(ticket, allowEntryWake: allowEntryWake)
-            // Primary entry has no artificial delay. Swipes must remain visible
-            // for 1.5 seconds, including time spent resolving HA configuration.
+
+            // A foreground entry asks the phone once. Only explicit visible
+            // vehicle entry and user commands perform watch-side HA work.
             if let deadline = wakeAfter {
                 do { try await Task.sleep(until: deadline, clock: .continuous) } catch { return }
             }
-            var wakeAttempted = false
-            while !Task.isCancelled && ticket == generation && visible {
-                if allowEntryWake, stateFresh, !wakeAttempted, let p = device?.panel, p.vehicle,
-                   WKExtension.shared().applicationState == .active {
-                    wakeAttempted = true
-                    _ = try? await client?.request(panelBody(p, command: "wake"))
-                }
-                if canRefresh && speedDraft == nil { await refresh(ticket) }
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-            }
+            guard !Task.isCancelled, ticket == generation, visible,
+                  allowEntryWake, let d = device, let p = d.panel, p.vehicle else { return }
+            do {
+                let raw = try await Integration(connection).request(["action": "config", "platform": "watch_os"])
+                var full = raw; full["token"] = connection.token; full["watch_id"] = connection.watch_id
+                let live = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: full)).validated()
+                guard ticket == generation, visible, !Task.isCancelled,
+                      live.devices.contains(d), live.sameTarget(as: connection),
+                      WKExtension.shared().applicationState == .active else { return }
+                _ = try? await Integration(live).request(panelBody(p, command: "wake"))
+            } catch { /* A stale entry never wakes another target. */ }
         }
     }
     func swipe(_ direction: Int) {
         guard let c = connection else { return }
         let current: WatchPage = showingSettings ? .settings : .device(sessionTarget ?? c.entity)
-        let next = WatchPage.next(current, entities: c.devices.map(\.entity), active: c.entity, direction: direction)
+        let next = WatchPage.next(current, entities: (c.companion_settings ?? CompanionSettings()).ordered(c.devices.map(\.entity)), direction: direction)
         leave(resetReceipts: false); observed = [:]; feedback = nil
         switch next {
         case .settings: showingSettings = true
@@ -313,7 +310,17 @@ import FanControlCore
         draft?.cancel(); speedDraft = nil; command?.cancel()
         if busy { feedback?.phase = .unconfirmed; message = "Not confirmed" }
     }
-    func paired(_ value: Connection) { connection = value; enter() }
+    func receiveCompanion() {
+        guard let saved = Vault.load() else { return }
+        // Persisted snapshots can arrive during a command. Never clear or
+        // recolor that intent; apply selection on its next safe entry.
+        guard !busy, speedDraft == nil else { return }
+        let changed = connection.map { !$0.sameTarget(as: saved) } ?? true
+        connection = saved
+        if changed { enter(resetSelection: true, allowEntryWake: false) }
+        else if let d = device { observed = ObservationCache.shared.load(saved, d); stateFresh = false }
+    }
+    func paired(_ value: Connection) { connection = value; WatchCompanion.shared.provision(); enter() }
     func forget() { leave(); showingSettings = false; ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); PushDiagnostics.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
 }
 

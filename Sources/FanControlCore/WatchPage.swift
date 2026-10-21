@@ -6,8 +6,8 @@ public enum WatchPage: Equatable, Sendable {
     case settings
 
     public static func next(_ current: Self, entities: [String], active: String? = nil, direction: Int) -> Self {
-        let controls = active.map { a in entities.contains(a) ? [a] + entities.filter { $0 != a } : entities } ?? entities
-        let pages = controls.map { Self.device($0) } + [.settings]
+        let pages = entities.map { Self.device($0) }
+        guard !pages.isEmpty else { return current }
         let index = pages.firstIndex(of: current) ?? 0
         let delta = direction >= 0 ? 1 : -1
         return pages[min(pages.count - 1, max(0, index + delta))]

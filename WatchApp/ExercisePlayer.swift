@@ -2,6 +2,7 @@ import SwiftUI
 import AVFoundation
 import CryptoKit
 import WatchKit
+import WatchConnectivity
 import FanControlCore
 
 // The player belongs to the process, not the visible panel. Wrist-down and panel
@@ -55,7 +56,7 @@ import FanControlCore
         stop(); tracks = []; folder = nil; scope = location.path
         guard let data = try? Data(contentsOf: location.appendingPathComponent("playlist.json")),
               let library = try? JSONDecoder().decode(Library.self, from: data),
-              UUID(uuidString: library.directory) != nil, (1...25).contains(library.tracks.count),
+              UUID(uuidString: library.directory) != nil, (0...25).contains(library.tracks.count),
               library.tracks.allSatisfy({ (try? $0.validate()) != nil }) else { return }
         let saved = location.appendingPathComponent(library.directory)
         guard library.tracks.allSatisfy({ FileManager.default.fileExists(atPath: saved.appendingPathComponent($0.fileName).path) }) else { return }
@@ -64,7 +65,7 @@ import FanControlCore
     func start(_ c: Connection, target: Device) {
         guard !syncing else { status = "Finish music sync first"; return }
         load(c); stop(); sessionTarget = target; active = true; wantsPlayback = true
-        guard !tracks.isEmpty else { status = "Sync music in Connection settings"; return }
+        guard !tracks.isEmpty else { status = "Add music on iPhone"; return }
         waiting = true; status = "Waiting for headset"
         activate()
     }
@@ -110,7 +111,8 @@ import FanControlCore
         guard !outputs.isEmpty else { return false }
         return outputs.allSatisfy { port in
             let bluetooth = [AVAudioSession.Port.bluetoothA2DP, .bluetoothLE, .bluetoothHFP].contains(port.portType)
-            let preferred = bluetooth && ExerciseAudioRoute.isPreferred(name: port.portName, uid: port.uid, rememberedUID: UserDefaults.standard.string(forKey: "exerciseHeadsetUID"))
+            let name = Vault.load()?.companion_settings?.headset ?? ExerciseAudioRoute.preferredName
+            let preferred = bluetooth && (port.portName == name || (name == ExerciseAudioRoute.preferredName && ExerciseAudioRoute.isPreferred(name: port.portName, uid: port.uid, rememberedUID: UserDefaults.standard.string(forKey: "exerciseHeadsetUID"))))
             if preferred { UserDefaults.standard.set(port.uid, forKey: "exerciseHeadsetUID") }
             return ExerciseAudioRoute.mayPlay(preferredHeadset: preferred, builtInSpeaker: port.portType == .builtInSpeaker, speakerChosen: speakerChosen)
         }
@@ -204,6 +206,61 @@ import FanControlCore
                 if !Task.isCancelled, syncTicket == syncGeneration { status = "Music sync failed; previous tracks kept" }
             }
         }
+    }
+    func receive(_ manifest: OfflinePlaylist) {
+        guard let c = Vault.load(), manifest.watchID == c.watch_id,
+              (try? manifest.validate()) != nil else { return }
+        let destination = root(c)
+        let pending = destination.appendingPathComponent("incoming.json")
+        if let data = try? Data(contentsOf: pending), let old = try? JSONDecoder().decode(OfflinePlaylist.self, from: data),
+           old.generation > manifest.generation || (old.generation == manifest.generation && old.id != manifest.id) { return }
+        let staging = destination.appendingPathComponent(manifest.id.uuidString)
+        do {
+            try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+            try JSONEncoder().encode(manifest).write(to: pending, options: .atomic)
+            // Reorders reuse verified files from the installed library.
+            if let data = try? Data(contentsOf: destination.appendingPathComponent("playlist.json")),
+               let library = try? JSONDecoder().decode(Library.self, from: data) {
+                for track in manifest.tracks where library.tracks.contains(track) {
+                    let source = destination.appendingPathComponent(library.directory).appendingPathComponent(track.fileName)
+                    let target = staging.appendingPathComponent(track.fileName)
+                    if !FileManager.default.fileExists(atPath: target.path) { try? FileManager.default.copyItem(at: source, to: target) }
+                }
+            }
+            try commitIncoming(manifest, connection: c)
+        } catch { status = "Music transfer failed" }
+    }
+    func receiveFile(_ file: URL, metadata: [String: Any]) {
+        defer { try? FileManager.default.removeItem(at: file) }
+        guard let raw = metadata["playlist"] as? Data,
+              let manifest = try? JSONDecoder().decode(OfflinePlaylist.self, from: raw),
+              let name = metadata["file"] as? String,
+              let track = manifest.tracks.first(where: { $0.fileName == name }),
+              let c = Vault.load(), manifest.watchID == c.watch_id else { return }
+        receive(manifest)
+        let destination = root(c)
+        guard let pending = try? Data(contentsOf: destination.appendingPathComponent("incoming.json")),
+              let current = try? JSONDecoder().decode(OfflinePlaylist.self, from: pending), current.id == manifest.id else { return }
+        do {
+            let data = try Data(contentsOf: file, options: .mappedIfSafe)
+            guard data.count == track.size, SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == track.sha256 else { throw ControlError.invalidResponse }
+            let target = destination.appendingPathComponent(manifest.id.uuidString).appendingPathComponent(track.fileName)
+            try data.write(to: target, options: .atomic)
+            try commitIncoming(manifest, connection: c)
+        } catch { status = "Music transfer failed" }
+    }
+    private func commitIncoming(_ manifest: OfflinePlaylist, connection c: Connection) throws {
+        let destination = root(c)
+        let staging = destination.appendingPathComponent(manifest.id.uuidString)
+        guard manifest.tracks.allSatisfy({ FileManager.default.fileExists(atPath: staging.appendingPathComponent($0.fileName).path) }) else { return }
+        let library = Library(directory: manifest.id.uuidString, tracks: manifest.tracks)
+        try JSONEncoder().encode(library).write(to: destination.appendingPathComponent("playlist.json"), options: .atomic)
+        if !active { scope = nil; load(c) }
+        // Preserve the active player's folder until playback ends.
+        for item in (try? FileManager.default.contentsOfDirectory(at: destination, includingPropertiesForKeys: nil)) ?? [] {
+            if UUID(uuidString: item.lastPathComponent) != nil, item != staging, item != folder { try? FileManager.default.removeItem(at: item) }
+        }
+        WCSession.default.transferUserInfo(["playlist_saved": manifest.id.uuidString, "watch_id": c.watch_id])
     }
     #if DEBUG && targetEnvironment(simulator)
     func preview(playing: Bool) {

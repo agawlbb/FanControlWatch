@@ -35,6 +35,8 @@ public struct Connection: Codable, Equatable, Sendable {
     public var entity: String
     public var devices: [Device]
     public var revision: Int?
+    public var companion: Bool?
+    public var companion_settings: CompanionSettings?
     // Revision is diagnostic metadata. An unchanged approved target must not
     // reject an early tap merely because an older saved record has no revision.
     public func sameTarget(as other: Self) -> Bool {

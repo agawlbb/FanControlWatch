@@ -20,6 +20,10 @@ jobs:
         run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
+      - name: Compile iPhone simulator companion
+        run: xcodebuild -project FanControlWatch.xcodeproj -scheme FanControl -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build-phone CODE_SIGNING_ALLOWED=NO build
+      - name: Capture iPhone companion
+        run: bash scripts/phone_preview.sh
       - name: Compile watchOS simulator app
         run: xcodebuild -project FanControlWatch.xcodeproj -scheme FanControlWatch -sdk watchsimulator -destination 'generic/platform=watchOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
       - name: Capture watch simulator first launch
@@ -31,6 +35,8 @@ jobs:
           name: FanControlWatch-unsigned
           path: |
             build/watch-*.png
+            build/phone-*.png
+            build-phone/Build/Products/Debug-iphonesimulator/FanControl.app
             build/FanControlWatch.xcarchive
             build/Build/Products/Debug-watchsimulator/FanControlWatch.app
           retention-days: 7

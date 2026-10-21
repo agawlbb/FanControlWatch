@@ -8,8 +8,8 @@ settings:
   base:
     SWIFT_VERSION: '5.9'
     DEVELOPMENT_TEAM: FKR675M7PM
-    MARKETING_VERSION: '0.5.2'
-    CURRENT_PROJECT_VERSION: '14'
+    MARKETING_VERSION: '0.6.0'
+    CURRENT_PROJECT_VERSION: '15'
 packages:
   FanControlCore:
     path: .
@@ -65,7 +65,8 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         WKApplication: true
-        WKWatchOnly: true
+        WKRunsIndependentlyOfCompanionApp: true
+        WKCompanionAppBundleIdentifier: dev.fancontrol.watch
         UIBackgroundModes: [audio, remote-notification]
         FanControlAPNSEnvironment: $(APNS_ENVIRONMENT)
         NSLocalNetworkUsageDescription: Connect to your Home Assistant for watch pairing and approved controls.
@@ -78,10 +79,11 @@ targets:
     scheme:
       gatherCoverageData: false
   FanControl:
-    type: application.watchapp2-container
+    type: application
     platform: iOS
-    sources: []
+    sources: [PhoneApp]
     dependencies:
+      - package: FanControlCore
       - target: FanControlWatch
         embed: true
         link: false
@@ -92,18 +94,33 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.fancontrol.watch
         SDKROOT: iphoneos
-        TARGETED_DEVICE_FAMILY: '1,2'
+        TARGETED_DEVICE_FAMILY: '1'
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
         SKIP_INSTALL: NO
         GENERATE_INFOPLIST_FILE: NO
+      configs:
+        Debug:
+          APNS_ENVIRONMENT: development
+        Release:
+          APNS_ENVIRONMENT: production
+    entitlements:
+      path: PhoneApp/FanControl.entitlements
+      properties:
+        aps-environment: development
     info:
-      path: Container/Info.plist
+      path: PhoneApp/Info.plist
       properties:
         CFBundleDisplayName: Fan Control
         CFBundlePackageType: APPL
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        LSApplicationLaunchProhibited: true
-        WKWatchOnly: true
+        UIBackgroundModes: [fetch, remote-notification]
+        BGTaskSchedulerPermittedIdentifiers: [dev.fancontrol.watch.phone.refresh]
+        FanControlAPNSEnvironment: $(APNS_ENVIRONMENT)
+        NSLocalNetworkUsageDescription: Connect to your Home Assistant.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         ITSAppUsesNonExemptEncryption: false
     scheme:
       gatherCoverageData: false
