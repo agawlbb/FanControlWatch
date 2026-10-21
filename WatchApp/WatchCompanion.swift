@@ -61,6 +61,7 @@ extension Notification.Name { static let companionSnapshotSaved = Notification.N
                   let next = try? snapshot.resolved(for: c),
                   (next.revision ?? 0) >= (c.revision ?? 0) else { return }
             do {
+                ExercisePlayer.shared.stopIfTargetChanged(next)
                 try Vault.save(next)
                 for d in next.devices where !protectedEntities.contains(d.entity) {
                     if let raw = snapshot.states[d.entity], let state = try JSONSerialization.jsonObject(with: raw) as? [String: Any] {

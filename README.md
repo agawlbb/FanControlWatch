@@ -1,6 +1,35 @@
-# Fan Control for Apple Watch
+# Fan Control for iPhone and Apple Watch
 
 Independent watchOS 10+ SwiftUI client for the [Fan Control HA integration](https://github.com/agawlbb/FanControlHA), ported from [Android 1.5.3](https://github.com/agawlbb/FanControl/tree/841587d42c391afaac4df77621c7428dd250b2c9).
+
+## iPhone companion — 0.6.0 (15)
+
+The iOS 17+ companion manages fixed watch swipe order, preferred headset, and
+imported MP3/M4A/AAC exercise music. Add/reorder/remove tracks, then Sync for
+offline watch playback. Files are hash checked and the previous playlist remains
+playable until its complete replacement is installed.
+
+Pair the watch with HA as before, then open both apps and Link watch on iPhone.
+Requires HA 0.7.0 and its updated push relay. The phone receives a separate
+observation/preferences key; the watch command key stays on the watch. Unlink
+phone revokes only that key. HA watch revocation revokes both.
+
+Routine refresh belongs to the phone: APNs, opportunistic background refresh,
+and 15-second refresh while the phone app is visible. The watch has no routine
+HA polling. It immediately displays its saved panel/states and asks the phone
+for its cache on entry. Without the phone, saved controls, direct HA commands,
+command-confirmation reads, visible settled-entry wake and offline music remain
+available. Cached states stay gray and tappable; snapshots cannot confirm a
+watch command. iOS background execution/delivery remains opportunistic.
+
+The Settings swipe page is removed; hold a watch page for setup/recovery. HA
+selects the opening panel; phone ordering controls swipe order without changing
+selection. Phone diagnostics show cache time and watch acknowledgment; HA
+retains correlated push attempts, phone receipt/save and watch-save events.
+
+This section supersedes older polling/Settings-page instructions below. Physical
+paired-device checks remain required for locked-phone APNs/background execution,
+WatchConnectivity, headset routing, offline playback and vehicle behavior.
 
 Licensed **AGPL-3.0-only**, matching the Android and Home Assistant projects. See LICENSE and NOTICE.md.
 

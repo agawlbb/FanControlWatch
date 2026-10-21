@@ -19,6 +19,7 @@ import FanControlCore
     private var index = 0
     private var folder: URL?
     private var scope: String?
+    private var reloadLibrary = false
     private var sessionTarget: Device?
     private var active = false
     private var wantsPlayback = false
@@ -52,8 +53,8 @@ import FanControlCore
     }
     func load(_ c: Connection) {
         let location = root(c)
-        guard scope != location.path else { return }
-        stop(); tracks = []; folder = nil; scope = location.path
+        guard scope != location.path || reloadLibrary else { return }
+        stop(); tracks = []; folder = nil; scope = location.path; reloadLibrary = false
         guard let data = try? Data(contentsOf: location.appendingPathComponent("playlist.json")),
               let library = try? JSONDecoder().decode(Library.self, from: data),
               UUID(uuidString: library.directory) != nil, (0...25).contains(library.tracks.count),
@@ -261,7 +262,7 @@ import FanControlCore
         guard manifest.tracks.allSatisfy({ FileManager.default.fileExists(atPath: staging.appendingPathComponent($0.fileName).path) }) else { return }
         let library = Library(directory: manifest.id.uuidString, tracks: manifest.tracks)
         try JSONEncoder().encode(library).write(to: destination.appendingPathComponent("playlist.json"), options: .atomic)
-        if !active { scope = nil; load(c) }
+        if !active { scope = nil; load(c) } else { reloadLibrary = true }
         // Preserve the active player's folder until playback ends.
         for item in (try? FileManager.default.contentsOfDirectory(at: destination, includingPropertiesForKeys: nil)) ?? [] {
             if UUID(uuidString: item.lastPathComponent) != nil, item != staging, item != folder { try? FileManager.default.removeItem(at: item) }
