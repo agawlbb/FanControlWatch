@@ -1,5 +1,14 @@
 # Apple Watch beta issue batch — 0.2.0
 
+## October 21 companion — 0.6.0 (15)
+
+Implemented minimal iPhone settings, persisted tile order, imported offline music
+management, independent companion authorization, phone-managed routine refresh
+and versioned phone/watch snapshots. Removed routine watch polling and the
+Settings swipe page; retained direct watch commands and setup/recovery access.
+Transfer completion, playback and vehicle evidence remain separate. See BUILD-15.md
+for source/build evidence, deployment requirements and paired-device checks.
+
 ## October 20 follow-up — 0.5.2 (14)
 
 - Addressed initial gray control readiness gates and transitional cover gating; preserved absolute displayed-state reversal, pending-conflict protection and speed draft timing.
