@@ -67,6 +67,7 @@ struct CompanionView: View {
                 }
             }
         }
+        .onChange(of: model.connection == nil) { _, unlinked in if unlinked { showingSettings = false } }
         .sheet(isPresented: $showingSettings) {
             NavigationStack {
                 SettingsView()
@@ -102,7 +103,7 @@ private struct SettingsView: View {
             NavigationLink("Diagnostics") {
                 List {
                     if let date = model.refreshedAt { LabeledContent("Last update", value: date.formatted()) }
-                    LabeledContent("Watch snapshot", value: String(model.watchSequence))
+                    LabeledContent("Watch snapshot", value: model.watchSequence > 0 ? String(model.watchSequence) : "Unknown")
                     ForEach(Array(model.events.enumerated()), id: \.offset) { _, value in Text(value).font(.caption.monospaced()) }
                 }.navigationTitle("Diagnostics")
             }

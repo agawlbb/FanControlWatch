@@ -70,20 +70,21 @@ import FanControlCore
             do {
                 _ = try await Integration(c).request(["action": "companion_unlink"])
                 guard connection?.token == c.token else { return }
-                foregroundWork?.cancel(); connection = nil; snapshot = nil; outbox = []; events = []
+                foregroundWork?.cancel(); connection = nil; snapshot = nil; outbox = []; events = []; watchSequence = 0; refreshedAt = nil
+                PhoneLibrary.shared.targetChanged()
                 Vault.clear()
                 for key in ["phoneSnapshot", "phoneReceipts", "phoneEvents"] { defaults.removeObject(forKey: key) }
                 for transfer in session.outstandingFileTransfers { transfer.cancel() }
                 for transfer in session.outstandingUserInfoTransfers { transfer.cancel() }
                 try? session.updateApplicationContext([:])
-            } catch { self.error = "Unlink failed. Try again." }
+            } catch { if connection?.token == c.token { self.error = "Unlink not confirmed. Try again." } }
         }
     }
     func registerPush() async {
         guard let c = connection, let pushToken,
               let environment = Bundle.main.object(forInfoDictionaryKey: "FanControlAPNSEnvironment") as? String else { return }
         do { _ = try await Integration(c).request(["action": "companion_push_register", "device_token": pushToken, "environment": environment == "development" ? "sandbox" : "production"]) }
-        catch { record("phone_failed"); self.error = "Push registration failed" }
+        catch { if connection?.token == c.token, !Task.isCancelled { record("phone_failed"); self.error = "Push registration not confirmed" } }
     }
     @discardableResult func refresh(updateID: String? = nil) async -> Bool {
         guard let original = connection, !refreshing, !saving else { return false }
@@ -98,6 +99,7 @@ import FanControlCore
             await flushReceipts()
             return true
         } catch {
+            guard connection?.token == original.token, !Task.isCancelled else { return false }
             record("phone_failed", updateID: updateID)
             self.error = "Home Assistant unavailable"
             await flushReceipts()
@@ -107,6 +109,7 @@ import FanControlCore
     private func install(_ next: CompanionSnapshot, original: Connection) throws {
         if let old = snapshot, old.watchID == next.watchID, old.sequence >= next.sequence { return }
         let c = try next.resolved(for: original)
+        guard (c.revision ?? 0) >= (connection?.revision ?? 0) else { return }
         try Vault.save(c)
         defaults.set(try JSONEncoder().encode(next), forKey: "phoneSnapshot")
         connection = c; snapshot = next; settings = c.companion_settings ?? CompanionSettings()
@@ -115,7 +118,8 @@ import FanControlCore
     }
     func saveSettings() {
         guard let original = connection, !saving else { return }
-        let value = settings
+        var value = settings
+        value.order = value.ordered(original.devices.map(\.entity))
         saving = true
         Task {
             defer { saving = false }
@@ -126,8 +130,9 @@ import FanControlCore
                 let next = try CompanionSnapshot(response: response, connection: original)
                 try install(next, original: original)
             } catch {
+                guard connection?.token == original.token else { return }
                 settings = connection?.companion_settings ?? CompanionSettings()
-                self.error = "Settings not saved. Refresh and try again."
+                self.error = "Settings not confirmed. Refresh to check."
             }
         }
     }
@@ -170,7 +175,11 @@ import FanControlCore
     private func receive(_ value: [String: Any]) {
         if let grant = value["grant"] as? Data, let c = try? JSONDecoder().decode(Connection.self, from: grant).validated(), c.companion == true {
             do {
-                if connection?.token != c.token { snapshot = nil; defaults.removeObject(forKey: "phoneSnapshot"); outbox = []; defaults.removeObject(forKey: "phoneReceipts") }
+                if connection?.token != c.token {
+                    snapshot = nil; outbox = []; events = []; watchSequence = 0; refreshedAt = nil
+                    PhoneLibrary.shared.targetChanged()
+                    for key in ["phoneSnapshot", "phoneReceipts", "phoneEvents"] { defaults.removeObject(forKey: key) }
+                }
                 try Vault.save(c); connection = c; settings = c.companion_settings ?? CompanionSettings(); error = ""
                 Task { await registerPush(); _ = await refresh() }
             } catch { self.error = "Link failed" }
@@ -204,7 +213,8 @@ import FanControlCore
     nonisolated func sessionDidDeactivate(_ session: WCSession) {
         Task { @MainActor in
             Vault.clear(); self.connection = nil; self.snapshot = nil; self.outbox = []; self.settings = CompanionSettings()
-            self.defaults.removeObject(forKey: "phoneSnapshot"); self.defaults.removeObject(forKey: "phoneReceipts")
+            self.events = []; self.watchSequence = 0; self.refreshedAt = nil; PhoneLibrary.shared.targetChanged()
+            self.defaults.removeObject(forKey: "phoneSnapshot"); self.defaults.removeObject(forKey: "phoneReceipts"); self.defaults.removeObject(forKey: "phoneEvents")
             session.activate()
         }
     }

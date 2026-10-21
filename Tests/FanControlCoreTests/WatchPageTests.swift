@@ -10,6 +10,7 @@ final class WatchPageTests: XCTestCase {
     func testRemovedTilesAreDroppedAndNewTilesAppended() {
         let settings = CompanionSettings(order: ["removed", "c", "c", "a"])
         XCTAssertEqual(settings.ordered(["a", "b", "c"]), ["c", "a", "b"])
+        XCTAssertEqual(CompanionSettings().ordered(["a", "b"]), ["a", "b"])
         XCTAssertEqual(WatchPage.next(.settings, entities: [], direction: 1), .settings)
     }
 }

@@ -83,6 +83,11 @@ import FanControlCore
             if ["mp3", "m4a", "aac"].contains(file.pathExtension), !keep.contains(file.lastPathComponent) { try? FileManager.default.removeItem(at: file) }
         }
     }
+    func targetChanged() {
+        for transfer in WCSession.default.outstandingFileTransfers where transfer.file.metadata?["playlist"] != nil { transfer.cancel() }
+        manifest = nil; status = ""; progress = 0; error = ""
+        try? FileManager.default.removeItem(at: root.appendingPathComponent("transfer.json"))
+    }
     func updateProgress() {
         guard let manifest, !manifest.tracks.isEmpty else { progress = 1; return }
         let pending = WCSession.default.outstandingFileTransfers.filter {
