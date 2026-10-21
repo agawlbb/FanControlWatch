@@ -147,7 +147,7 @@ import FanControlCore
         return value
     }
     func publish() {
-        guard session.activationState == .activated else { return }
+        guard session.activationState == .activated, session.isPaired, session.isWatchAppInstalled, connection != nil else { return }
         do { try session.updateApplicationContext(payload()) }
         catch { self.error = "Watch update pending" }
     }
