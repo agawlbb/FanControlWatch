@@ -227,6 +227,12 @@ import FanControlCore
                     if !FileManager.default.fileExists(atPath: target.path) { try? FileManager.default.copyItem(at: source, to: target) }
                 }
             }
+            let installed = (try? Data(contentsOf: destination.appendingPathComponent("playlist.json")))
+                .flatMap { try? JSONDecoder().decode(Library.self, from: $0) }?.directory
+            for item in (try? FileManager.default.contentsOfDirectory(at: destination, includingPropertiesForKeys: nil)) ?? [] {
+                if UUID(uuidString: item.lastPathComponent) != nil, item != staging,
+                   item.lastPathComponent != installed, item != folder { try? FileManager.default.removeItem(at: item) }
+            }
             try commitIncoming(manifest, connection: c)
         } catch { status = "Music transfer failed" }
     }

@@ -20,7 +20,7 @@ struct CompanionView: View {
                                 Spacer()
                                 if device.entity == model.connection?.entity { Image(systemName: "checkmark").foregroundStyle(.mint).accessibilityLabel("Active panel") }
                             }
-                        }.onMove(perform: model.move)
+                        }.onMove(perform: model.move).moveDisabled(model.saving)
                     }
                     Section("Exercise music") {
                         ForEach(library.tracks, id: \.fileName) { track in Text((track.name as NSString).deletingPathExtension) }
@@ -62,7 +62,7 @@ private struct SettingsView: View {
                 TextField("Name", text: $headset)
                     .autocorrectionDisabled()
                     .onSubmit { model.settings.headset = headset; model.saveSettings() }
-                Button("Save") { model.settings.headset = headset; model.saveSettings() }
+                Button("Save") { model.settings.headset = headset; model.saveSettings() }.disabled(model.saving)
             }
             Section("Connection") {
                 LabeledContent("Watch", value: model.reachable ? "Connected" : "Unavailable")

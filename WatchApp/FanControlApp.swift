@@ -54,7 +54,7 @@ import FanControlCore
         // A refresh launch can instantiate the view without user-visible entry.
         guard WKExtension.shared().applicationState == .active else { return }
         leave(resetReceipts: resetSelection); visible = true
-        if resetSelection { connection = Vault.load(); sessionTarget = nil; showingSettings = false; feedback = nil; wakeAfter = nil }
+        if resetSelection { WatchCompanion.shared.beginEntry(); connection = Vault.load(); sessionTarget = nil; showingSettings = false; feedback = nil; wakeAfter = nil }
         // Migrate older unlocked-only keychain entries before the next wrist-down push.
         if let connection { try? Vault.save(connection) }
         if let connection, resetSelection {
@@ -194,6 +194,7 @@ import FanControlCore
         let replacing = busy && ToggleIntent.replaces(action, feedback?.command)
         guard (!busy || replacing), visible,
               let c = connection, let d = device, let client else { return }
+        WatchCompanion.shared.protectIntent(d.entity)
         if replacing { command?.cancel() }
         draft?.cancel(); speedDraft = nil
         let requested = RequestedPresentation.label(command: action, original: label)
@@ -314,7 +315,7 @@ import FanControlCore
         guard let saved = Vault.load() else { return }
         // Persisted snapshots can arrive during a command. Never clear or
         // recolor that intent; apply selection on its next safe entry.
-        guard !busy, speedDraft == nil else { return }
+        guard feedback == nil, speedDraft == nil else { return }
         let changed = connection.map { !$0.sameTarget(as: saved) } ?? true
         connection = saved
         if changed { enter(resetSelection: true, allowEntryWake: false) }

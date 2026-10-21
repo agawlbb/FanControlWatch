@@ -21,7 +21,7 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
       - name: Compile iPhone simulator companion
-        run: xcodebuild -project FanControlWatch.xcodeproj -scheme FanControl -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build-phone CODE_SIGNING_ALLOWED=NO build
+        run: xcodebuild -project FanControlWatch.xcodeproj -scheme FanControl -destination 'generic/platform=iOS Simulator' -derivedDataPath build-phone CODE_SIGNING_ALLOWED=NO build
       - name: Capture iPhone companion
         run: bash scripts/phone_preview.sh
       - name: Compile watchOS simulator app

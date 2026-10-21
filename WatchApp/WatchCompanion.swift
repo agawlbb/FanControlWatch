@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import WatchKit
 import FanControlCore
 
 extension Notification.Name { static let companionSnapshotSaved = Notification.Name("companionSnapshotSaved") }
@@ -7,10 +8,17 @@ extension Notification.Name { static let companionSnapshotSaved = Notification.N
 @MainActor final class WatchCompanion: NSObject, WCSessionDelegate {
     static let shared = WatchCompanion()
     private var granting = false
+    private var protectedEntities = Set<String>()
+    func protectIntent(_ entity: String) { protectedEntities.insert(entity) }
+    func beginEntry() { protectedEntities.removeAll() }
     private let session = WCSession.default
     func start() { session.delegate = self; session.activate() }
     func requestLatest() {
         provision()
+        if let c = Vault.load(), session.activationState == .activated {
+            session.transferUserInfo(["watch_opened": true, "watch_id": c.watch_id, "panel": c.entity,
+                                      "revision": c.revision ?? 0, "at_ms": Int(Date().timeIntervalSince1970 * 1000)])
+        }
         guard session.activationState == .activated, session.isReachable else { return }
         session.sendMessage(["action": "latest"], replyHandler: { message in
             Task { @MainActor in self.receive(message) }
@@ -48,7 +56,7 @@ extension Notification.Name { static let companionSnapshotSaved = Notification.N
                   (next.revision ?? 0) >= (c.revision ?? 0) else { return }
             do {
                 try Vault.save(next)
-                for d in next.devices {
+                for d in next.devices where !protectedEntities.contains(d.entity) {
                     if let raw = snapshot.states[d.entity], let state = try JSONSerialization.jsonObject(with: raw) as? [String: Any] {
                         ObservationCache.shared.save(state, connection: next, device: d)
                     }

@@ -19,7 +19,7 @@ import FanControlCore
     private var snapshot: CompanionSnapshot?
     private var foregroundWork: Task<Void, Never>?
     private var outbox: [[String: Any]] = []
-    private var saving = false
+    @Published private(set) var saving = false
     private var defaults: UserDefaults { .standard }
     override private init() {
         super.init()
@@ -161,6 +161,17 @@ import FanControlCore
             } catch { error = "Link failed" }
         }
         guard value["watch_id"] as? String == connection?.watch_id else { return }
+        if value["watch_opened"] as? Bool == true {
+            record("watch_opened")
+            // Preserve the watch's actual first-display panel and time separately
+            // from the phone's newer cached selection.
+            if let last = outbox.indices.last {
+                outbox[last]["panel"] = value["panel"] as? String ?? ""
+                outbox[last]["revision"] = value["revision"] as? Int ?? 0
+                outbox[last]["at_ms"] = value["at_ms"] as? Int ?? outbox[last]["at_ms"]
+                defaults.set(outbox, forKey: "phoneReceipts")
+            }
+        }
         if let seq = value["watch_saved"] as? Int {
             watchSequence = max(watchSequence, seq)
             let update = (value["update_id"] as? String).flatMap { UUID(uuidString: $0)?.uuidString.lowercased() }
