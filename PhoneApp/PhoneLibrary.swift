@@ -77,7 +77,7 @@ import FanControlCore
     }
     func acknowledge(_ id: String) {
         guard manifest?.id.uuidString == id else { return }
-        status = "On watch"
+        status = tracks == manifest?.tracks ? "On watch" : ""
         let keep = Set(tracks.map(\.fileName))
         for file in (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [] {
             if ["mp3", "m4a", "aac"].contains(file.pathExtension), !keep.contains(file.lastPathComponent) { try? FileManager.default.removeItem(at: file) }
