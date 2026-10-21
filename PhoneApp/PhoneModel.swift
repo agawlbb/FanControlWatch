@@ -64,6 +64,21 @@ import FanControlCore
         guard session.activationState == .activated, session.isReachable else { error = "Open Fan Control on your watch."; return }
         session.sendMessage(["action": "link"], replyHandler: nil, errorHandler: { _ in Task { @MainActor in self.error = "Watch unavailable" } })
     }
+    func unlink() {
+        guard let c = connection else { return }
+        Task {
+            do {
+                _ = try await Integration(c).request(["action": "companion_unlink"])
+                guard connection?.token == c.token else { return }
+                foregroundWork?.cancel(); connection = nil; snapshot = nil; outbox = []; events = []
+                Vault.clear()
+                for key in ["phoneSnapshot", "phoneReceipts", "phoneEvents"] { defaults.removeObject(forKey: key) }
+                for transfer in session.outstandingFileTransfers { transfer.cancel() }
+                for transfer in session.outstandingUserInfoTransfers { transfer.cancel() }
+                try? session.updateApplicationContext([:])
+            } catch { self.error = "Unlink failed. Try again." }
+        }
+    }
     func registerPush() async {
         guard let c = connection, let pushToken,
               let environment = Bundle.main.object(forInfoDictionaryKey: "FanControlAPNSEnvironment") as? String else { return }
@@ -158,7 +173,7 @@ import FanControlCore
                 if connection?.token != c.token { snapshot = nil; defaults.removeObject(forKey: "phoneSnapshot"); outbox = []; defaults.removeObject(forKey: "phoneReceipts") }
                 try Vault.save(c); connection = c; settings = c.companion_settings ?? CompanionSettings(); error = ""
                 Task { await registerPush(); _ = await refresh() }
-            } catch { error = "Link failed" }
+            } catch { self.error = "Link failed" }
         }
         guard value["watch_id"] as? String == connection?.watch_id else { return }
         if value["watch_opened"] as? Bool == true {
@@ -182,7 +197,7 @@ import FanControlCore
     }
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) { Task { @MainActor in self.reachable = session.isReachable; self.publish() } }
     nonisolated func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
-        if error != nil { Task { @MainActor in PhoneLibrary.shared.transferFailed() } }
+        Task { @MainActor in PhoneLibrary.shared.transferFinished(fileTransfer, error: error) }
     }
     nonisolated func sessionReachabilityDidChange(_ session: WCSession) { Task { @MainActor in self.reachable = session.isReachable } }
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) { }

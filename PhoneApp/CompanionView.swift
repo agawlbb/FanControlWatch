@@ -30,7 +30,12 @@ struct CompanionView: View {
                             Spacer()
                             Button("Sync", systemImage: "arrow.triangle.2.circlepath", action: library.sync)
                         }.buttonStyle(.borderless).moveDisabled(true).deleteDisabled(true)
-                        if !library.status.isEmpty { Text(library.status).foregroundStyle(.secondary).font(.caption) }
+                        if !library.status.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                if library.status != "On watch" { ProgressView(value: library.progress) }
+                                Text(library.status).foregroundStyle(.secondary).font(.caption)
+                            }
+                        }
                     }
                     Section {
                         NavigationLink("Settings") { SettingsView() }
@@ -38,6 +43,12 @@ struct CompanionView: View {
                 }
                 if !model.error.isEmpty { Text(model.error).foregroundStyle(.red) }
                 if !library.error.isEmpty { Text(library.error).foregroundStyle(.red) }
+            }
+            .task {
+                while !Task.isCancelled {
+                    library.updateProgress()
+                    do { try await Task.sleep(for: .seconds(1)) } catch { return }
+                }
             }
             .environment(\.editMode, $editMode)
             .navigationTitle("Fan Control")
@@ -69,6 +80,7 @@ private struct SettingsView: View {
                 if let c = model.connection { Text(c.url).foregroundStyle(.secondary).textSelection(.enabled) }
                 Button("Refresh") { Task { _ = await model.refresh() } }
                 Button("Relink watch", action: model.link)
+                Button("Unlink phone", role: .destructive, action: model.unlink)
             }
             NavigationLink("Diagnostics") {
                 List {

@@ -8,6 +8,7 @@ import FanControlCore
     static let shared = PhoneLibrary()
     @Published private(set) var tracks: [ExerciseTrack] = []
     @Published private(set) var status = ""
+    @Published private(set) var progress: Double = 0
     @Published private(set) var manifest: OfflinePlaylist?
     @Published var error = ""
     private var root: URL { FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Music") }
@@ -71,7 +72,7 @@ import FanControlCore
             for track in tracks {
                 WCSession.default.transferFile(root.appendingPathComponent(track.fileName), metadata: ["playlist": raw, "file": track.fileName])
             }
-            status = "Waiting for watch"; error = ""
+            progress = 0; status = "Waiting for watch"; error = ""
         } catch { self.error = "Transfer could not start" }
     }
     func acknowledge(_ id: String) {
@@ -82,5 +83,19 @@ import FanControlCore
             if ["mp3", "m4a", "aac"].contains(file.pathExtension), !keep.contains(file.lastPathComponent) { try? FileManager.default.removeItem(at: file) }
         }
     }
-    func transferFailed() { status = ""; error = "Transfer interrupted. Tap Sync to retry." }
+    func updateProgress() {
+        guard let manifest, !manifest.tracks.isEmpty else { progress = 1; return }
+        let pending = WCSession.default.outstandingFileTransfers.filter {
+            guard let raw = $0.file.metadata?["playlist"] as? Data,
+                  let list = try? JSONDecoder().decode(OfflinePlaylist.self, from: raw) else { return false }
+            return list.id == manifest.id
+        }
+        progress = min(1, max(0, (Double(manifest.tracks.count - pending.count) + pending.reduce(0) { $0 + $1.progress.fractionCompleted }) / Double(manifest.tracks.count)))
+    }
+    func transferFinished(_ transfer: WCSessionFileTransfer, error: Error?) {
+        guard let raw = transfer.file.metadata?["playlist"] as? Data,
+              let list = try? JSONDecoder().decode(OfflinePlaylist.self, from: raw), list.id == manifest?.id else { return }
+        updateProgress()
+        if error != nil { status = ""; self.error = "Transfer interrupted. Tap Sync to retry." }
+    }
 }

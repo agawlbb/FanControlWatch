@@ -34,9 +34,6 @@ import FanControlCore
         return connection?.devices.first { $0.entity == (sessionTarget ?? connection?.entity) }
     }
     var busy: Bool { feedback?.phase == .pending }
-    // Action requests can start before the first observation. Keep entry reads
-    // running so the settled visible-entry wake cannot be blocked by that tap.
-    private var canRefresh: Bool { !busy || feedback.map { ActionReceipts.applies($0.command) } == true }
     var canAdjustSpeed: Bool { visible && device?.domain == "fan" && (!busy || feedback?.command == "turn_on") }
     var displayedSpeed: Int {
         if let speedDraft { return speedDraft }
@@ -131,42 +128,6 @@ import FanControlCore
     private func stateBody(_ d: Device) -> [String: Any] {
         if let p = d.panel { return panelBody(p) }
         return ["action": "state", "entity": d.entity]
-    }
-    private func refresh(_ ticket: UUID, allowEntryWake: Bool = false) async {
-        guard let old = connection, let client else { return }
-        do {
-            let config = try await client.request(["action": "config", "platform": "watch_os"])
-            var complete = config; complete["token"] = old.token; complete["watch_id"] = old.watch_id
-            let next = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: complete)).validated()
-            guard ticket == generation, !Task.isCancelled, canRefresh else { return }
-            if !next.sameTarget(as: old) {
-                ExercisePlayer.shared.stopIfTargetChanged(next)
-                if next.devices != old.devices || next.watch_id != old.watch_id { actionReceipts.clear() }
-                try Vault.save(next); connection = next; observed = [:]; feedback = nil
-                if !next.devices.contains(where: { $0.entity == sessionTarget }) { sessionTarget = nil }
-                // A configuration refresh (including a push-induced change)
-                // must never be treated as a new foreground vehicle entry.
-                enter(resetSelection: false, allowEntryWake: allowEntryWake); return
-            }
-            if next.revision != old.revision {
-                try Vault.save(next); connection = next // Metadata refresh does not cancel an intent or restart entry.
-            }
-            guard let d = device else { observed = [:]; return }
-            let state = try await client.request(stateBody(d))
-            guard ticket == generation, !Task.isCancelled, canRefresh else { return }
-            ObservationCache.shared.save(state, connection: old, device: d)
-            if d.domain == "fan", !["on", "off"].contains(state["state"] as? String ?? "") {
-                observed = ObservationCache.shared.load(old, d); stateFresh = false
-            } else { observed = state; stateFresh = true }
-            message = ""
-            if !busy && speedDraft == nil { feedback = nil }
-        } catch {
-            guard ticket == generation, !Task.isCancelled else { return }
-            // A failed read is not an HA observation of unknown/off. Retain only
-            // this visible target's last observation in gray. Its toggle stays tappable.
-            stateFresh = false; message = "Connection interrupted"
-            if case ControlError.rejected(let status) = error, [401, 403].contains(status), connection == old { forget(); message = "Watch access revoked. Pair again." }
-        }
     }
     func actionFeedback(_ action: String) -> Feedback? {
         guard let c = connection, let d = device else { return nil }
