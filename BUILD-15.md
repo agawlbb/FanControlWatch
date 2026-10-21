@@ -71,8 +71,31 @@ A team-scoped key can serve both apps; verify any topic-specific restrictions.
 The phone receives no Apple private key or HA admin token.
 
 Install the iPhone/watch package, open both apps and use Link watch if needed.
-Existing watch pairing is retained. TestFlight upload and live HA/relay deployment
-have not been performed by this implementation task.
+Existing watch pairing is retained.
+
+### October 21 deployment and TestFlight upload
+
+HA 0.7.0 and the pinned relay entry were deployed, backed up and verified.
+Both existing HA watch identities and pairing secrets were preserved. The existing
+production APNs key now authorizes both phone and watch topics, saved with the
+user's explicit approval. HA recorded a post-deployment hint as accepted by APNs
+(HTTP 202); device receipt remains unknown. See the integration repository's
+`DEPLOYMENT-0.7.0.md` for deployment evidence and rollback locations.
+
+The existing signing runner rebuilt the unchanged tested source commit, passed
+all 37 Swift tests and signature/APNs entitlement checks, and uploaded 0.6.0 (15):
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/39655941241
+
+Apple reported upload success at 18:58:13 UTC and processing `VALID` at
+19:00:37 UTC on October 21. The build is not expired and declares no non-exempt
+encryption. It was assigned to the existing Internal testing group; no new
+testers, external review submission or App Store release was created.
+App Store Connect build ID: `c359b4c2-e92b-4827-8108-b2d923e83674`.
+
+The earlier IPA hash above describes the pre-upload signed verification package.
+This upload was freshly signed from the same pinned source; it is a separate
+signing output. Local upload logs and browser evidence are under
+`build/companion060/` and are excluded from Git.
 
 Paired hardware must still verify locked-phone APNs/background execution,
 WatchConnectivity latency, first displayed panel, disconnected-phone commands,
