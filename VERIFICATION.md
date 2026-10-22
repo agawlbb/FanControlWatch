@@ -1,5 +1,11 @@
 # Verification and device checks
 
+## Pending source-only Driving Podcast update — October 20, 2026
+
+Added the fifth Driving control, Podcast, in a two-column, three-row grid. Added the optional HA-configured script role, one-shot dispatch, and the existing per-action receipt path. Added source regression coverage for script role validation, unavailable/running scripts, vehicle-independent dispatch and action classification; updated the synthetic Driving preview. At the user's explicit request, no builds, tests, lint, simulator runs or validation were executed for this update. No deployment or real-watch/rendering/playback verification was performed. Wear OS sources were not changed for this update.
+
+After build/deployment, check both Driving pages with their HA-selected podcast script, small/large watch layout and scrolling, immediate gray Activated, authenticated receipt, lost response/no replay, stale configuration/callbacks, and Spotify Joe's actual playback device. HA acceptance is dispatch evidence only.
+
 Apple port version 0.2.0 (build 3), based on Android 1.5.3; HA integration 0.5.0.
 
 GitHub macOS CI compiles SwiftUI for watchsimulator and archives the watch-only distribution container. Core unit tests cover power/speed evidence, unavailable and mismatched responses, cover presentation assumptions, full Exercise Stop operation completion, pending/failure colors, request identity, encrypted response authentication, local/remote URL policy, safe read fallback, and no command fallback/replay after ambiguous transport failures.
@@ -45,3 +51,51 @@ HA 0.5.1 source `ca0cb268b384df7b0703419aac6627de2e5b4644` (`v0.5.1`) passed 171
 The required root `gradlew.bat validateDebug` passed after the final watch code change (Android 1.5.3 unchanged). Code review covered session-only selection, reset on foreground entry, exact configuration revalidation, cancellation/generation checks, gray terminal/dispatch outcomes, and settled visible entry wake. Automated tests do not establish physical-watch behavior. Remaining checks: real left/right gestures versus scrolling, reopen/reset and wrist-down lifecycle, delayed/mismatched state, actual climate OFF/horn/cover behavior, Spotify handoff, fan speed quiet window and network recovery.
 
 App Store Connect finished processing build 6 and its saved test notes were read back. Build ID: 3bee2eaa-19aa-4b29-8264-579ba8c17f4f. Assigned to the existing Internal group (one tester); the group's Builds page shows 0.3.0 (6) **Testing**. Previous available builds remain accessible. Local delivery proof: build/review030-build6/testflight-ready.png (ignored).
+
+## 0.3.1 build 8 — October 19, 2026
+
+Source: `67e068d5d8975a219cc29e23f009626adb4dba92`.
+[macOS validation](https://github.com/agawlbb/FanControlWatch/actions/runs/39347937303)
+passed on Xcode 26.6: 21 Swift tests, watchOS simulator build, installed-app
+screenshots and unsigned archive. Inspected Driving ready/pending/accepted and
+Exercise accepted screenshots: teal action name, gray Activated, then teal
+Activated, without recoloring the unchanged state toggles. DEBUG-only synthetic
+fixtures send no requests. Physical-watch receipt timing is not established.
+
+The four new tests cover the action-only allowlist (excluding fan speed/toggles
+and generic Run), pending/complete Stop acknowledgments versus rejected terminal
+statuses, independent per-action receipt retention/reset, and stale callbacks,
+other targets and late callbacks after session clearing. Acceptance is checked
+only on an authenticated command response, never from a state/config poll.
+Missing responses stay gray; Stop keeps its stable operation-ID delivery retries.
+An acknowledged Stop no longer reaches the client's cancellation-on-return path;
+HA continues its existing bounded operation and selects Driving after completion.
+The separate one-shot music request and Spotify app handoff are preserved.
+
+Compared against 0.3.0 (6): shared control(), entire device()/fan view, climate(),
+cover(), fan speed adjust/delivery, Models.swift confirmation mappings,
+Transport.swift and RequestedPresentation.swift are unchanged. The required root
+`gradlew.bat validateDebug` passed after the final code change (Android 1.5.3
+unchanged). HA 0.5.1 and HA automations/configuration were not modified.
+
+Remaining physical-watch checks: all four actions' real acknowledgment timing,
+receipt retention through refresh and temporary swipes, reset on leaving/reopening,
+unavailable/rejected/ambiguous responses, repeat taps, Spotify handoff and the
+accepted Stop continuation/Driving selection. These tests do not establish physical
+vehicle, script or music completion; teal Activated represents HA acceptance only.
+
+[Signed release](https://github.com/agawlbb/coffey-table-recipes/actions/runs/39347941627)
+used the existing approved signing repository and credentials, pinned to the exact
+source above (tag `v0.3.1`). All 21 Swift tests passed again. The signed archive,
+export, embedded container/watch/complication signature/profile checks and App Store
+Connect upload succeeded at 8:37 PM EDT on October 19. Build 7 was an intermediate
+build; build 8 preserves the existing separate music dispatch and stable Stop
+operation-ID delivery behavior. TestFlight processing/group assignment is recorded
+below after verification.
+
+App Store Connect processing completed. Test notes were saved and read back; build 0.3.1 (8) was assigned to the existing Internal group (one tester). The group's Builds page visibly reports **Testing**. Delivery proof is in ignored build/review031-build8/testflight-ready.png. Previous tester builds remain available. Both repositories are clean after recording delivery.
+
+
+## 0.4.0 / build 9 validation
+
+HA Podcast source passed 172 tests locally. Swift tests, watch simulator compilation and archive are validated by the macOS workflow for the release commit. Required hardware checks: background delivery cadence with an active complication, phone cellular proxy versus watch LTE-only, cache display after termination, ON/OFF reversal during delayed receipt, stale responses after repeated taps, and HA Podcast script dispatch. Background reads never wake vehicles. Automated tests cannot prove radio routing, watch rendering or physical car behavior.

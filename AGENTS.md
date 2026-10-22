@@ -1,6 +1,28 @@
 # Watch command feedback
 
+## October 20, 2026 update
+
+Gray toggles remain tappable. Reverse the displayed requested or cached state with
+an explicit ON/OFF or OPEN/CLOSE command, never a toggle service. A newer tap on
+the same toggle supersedes old UI work; stale callbacks cannot change its state.
+Keep speed adjustment behavior unchanged. This supersedes older pending-toggle
+disabling rules below.
+
+Request passive background refresh about every 15 minutes under watchOS scheduling.
+Read HA selection and fan observations only; never wake vehicles or send controls.
+Disable the watch cellular radio for these requests while permitting expensive
+phone-proxied routes. Verify phone-cellular routing on hardware. Persist only valid
+observations scoped to watch, credentials, server and exact device configuration;
+show cached state gray until a fresh observation. Spotify work is paused.
+
+
 ## Action receipt update — 0.3.1
+
+Untouched actions open teal and tappable without requiring a fresh observation
+or an availability flag. Only a conflicting pending command disables them.
+Gray Activated begins after a tap; HA receipt restores teal Activated. Continue
+validating configuration and dispatch readiness in the background. Keep entry
+reads running during pending actions so an early tap cannot block entry wake.
 
 Leave for Work, Honk Horn, Start Exercise and Stop Exercise use teal command
 names when ready, gray Activated on tap, then teal Activated after authenticated

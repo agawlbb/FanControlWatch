@@ -4,8 +4,12 @@ import Foundation
 public struct ActionReceipts {
     private var entries: [String: Feedback] = [:]
     public init() {}
+    // An untouched action is ready to request, independent of observed state.
+    public static func isGray(_ feedback: Feedback?) -> Bool {
+        feedback.map { $0.phase != .accepted } ?? false
+    }
     public static func applies(_ command: String) -> Bool {
-        ["leave", "honk", "start_exercise", "stop_exercise"].contains(command)
+        ["leave", "honk", "podcast", "start_exercise", "stop_exercise"].contains(command)
     }
     private func key(_ target: String, _ command: String) -> String { target + "|" + command }
     public func feedback(target: String, command: String) -> Feedback? { entries[key(target, command)] }

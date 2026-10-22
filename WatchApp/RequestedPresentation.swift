@@ -1,7 +1,7 @@
 import Foundation
 import FanControlCore
 
-// Networking is foreground-only. Snapshots never include optimistic projections.
+// Requested labels are presentation only; observation storage never includes them.
 struct RequestedPresentation {
     static func label(command: String, original: String) -> String {
         switch command {
