@@ -1,5 +1,30 @@
 # Verification and device checks
 
+## Passive push refresh — 0.5.1 (13), October 20, 2026
+
+Prepared APNs registration through encrypted HA pairing, passive selected-panel
+refresh, 1.5-second swipe-entry vehicle wake delay and immediate primary entry
+after HA target verification. No cooldown. Config refreshes never create entry
+wake. See PUSH-REFRESH.md for signing requirements and physical checks.
+
+Source `679b5a9548fcfc3d8532ecadcbf83947e4ee3ca8` passed
+[macOS CI](https://github.com/agawlbb/FanControlWatch/actions/runs/39499938418):
+31 Swift tests, watchOS simulator compilation, simulator capture generation and
+unsigned device archive. Source `9cbc0d0eed2ff3d57cce6d4ccae938e0c44c1948`
+then passed the [signed build and upload](https://github.com/agawlbb/coffey-table-recipes/actions/runs/39503517223),
+including 31 tests and the exported production APNs entitlement check. Apple
+processing and existing Internal-group availability
+[passed](https://github.com/agawlbb/coffey-table-recipes/actions/runs/39503517389):
+0.5.1 (13) is VALID and IN_BETA_TESTING. See BUILD-13.md for full delivery proof.
+Physical swipe timing, primary wake and passive APNs delivery
+still require a real watch. Wear OS code and validation are untouched under the
+development pause.
+The hosted relay responds at https://coffeybean.com/FanControl/ and is configured
+with a private production APNs key. Live HA 0.6.2 is loaded with native push
+options enabled and authenticated relay checks passed without sending a push or
+vehicle command. Real watch registration/delivery checks remain pending; no key
+or relay secret is included in source or build artifacts.
+
 ## Pending source-only Driving Podcast update — October 20, 2026
 
 Added the fifth Driving control, Podcast, in a two-column, three-row grid. Added the optional HA-configured script role, one-shot dispatch, and the existing per-action receipt path. Added source regression coverage for script role validation, unavailable/running scripts, vehicle-independent dispatch and action classification; updated the synthetic Driving preview. At the user's explicit request, no builds, tests, lint, simulator runs or validation were executed for this update. No deployment or real-watch/rendering/playback verification was performed. Wear OS sources were not changed for this update.
