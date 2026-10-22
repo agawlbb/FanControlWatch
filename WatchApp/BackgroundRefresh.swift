@@ -13,8 +13,17 @@ import FanControlCore
         _ = await refresh()
         PushNotifications.syncRegistration()
     }
-    static func refresh() async -> Bool {
-        guard WKExtension.shared().applicationState != .active, let original = Vault.load() else { return false }
+    static func refresh(updateID: String? = nil) async -> Bool {
+        let saved = Vault.load()
+        guard WKExtension.shared().applicationState != .active else {
+            if updateID != nil { PushDiagnostics.shared.record("skipped_active", connection: saved, updateID: updateID) }
+            return false
+        }
+        guard let original = saved else {
+            PushDiagnostics.shared.record("connection_unavailable", connection: nil, updateID: updateID)
+            return false
+        }
+        PushDiagnostics.shared.record("refresh_started", connection: original, updateID: updateID)
         let configuration = URLSessionConfiguration.ephemeral
         // Disallow the watch's built-in cellular radio, without rejecting a
         // phone proxy merely because its upstream connection is expensive.
@@ -27,8 +36,13 @@ import FanControlCore
             config["token"] = original.token; config["watch_id"] = original.watch_id
             let next = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: config)).validated()
             try Task.checkCancellation()
-            guard WKExtension.shared().applicationState != .active, Vault.load() == original else { return false }
+            guard WKExtension.shared().applicationState != .active, Vault.load() == original else {
+                PushDiagnostics.shared.record("refresh_superseded", connection: original, updateID: updateID)
+                return false
+            }
+            PushDiagnostics.shared.record("config_fetched", connection: next, updateID: updateID)
             try Vault.save(next)
+            PushDiagnostics.shared.record("selection_saved", connection: next, updateID: updateID)
             let reader = Integration(next, http: HTTP(configuration: configuration))
             // Only the HA-selected panel needs passive observations. Reads do
             // not use the entry loop, which is the only vehicle wake producer.
@@ -39,7 +53,11 @@ import FanControlCore
                     ObservationCache.shared.save(state, connection: next, device: device)
                 }
             }
+            await PushDiagnostics.flush(next, client: reader)
             return true
-        } catch { return false /* Keep observations; never synthesize state. */ }
+        } catch {
+            PushDiagnostics.shared.record("refresh_failed", connection: original, updateID: updateID)
+            return false // Keep observations; never synthesize state.
+        }
     }
 }

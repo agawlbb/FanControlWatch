@@ -1,6 +1,10 @@
 import Foundation
 
 public enum ToggleIntent {
+    // Transitional evidence stays gray but still presents an absolute toggle target.
+    public static func coverPresentation(_ observed: String?) -> String {
+        ["open", "opening"].contains(observed ?? "") ? "OPEN" : "CLOSED"
+    }
     public static func family(_ command: String) -> String? {
         if ["turn_on", "turn_off"].contains(command) { return "power" }
         if ["climate_on", "climate_off"].contains(command) { return "climate" }

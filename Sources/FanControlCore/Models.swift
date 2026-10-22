@@ -34,6 +34,13 @@ public struct Connection: Codable, Equatable, Sendable {
     public var watch_id: String
     public var entity: String
     public var devices: [Device]
+    public var revision: Int?
+    // Revision is diagnostic metadata. An unchanged approved target must not
+    // reject an early tap merely because an older saved record has no revision.
+    public func sameTarget(as other: Self) -> Bool {
+        url == other.url && remote_url == other.remote_url && token == other.token &&
+        watch_id == other.watch_id && entity == other.entity && devices == other.devices
+    }
     public var active: Device? { devices.first { $0.entity == entity } }
     public func validated() throws -> Self {
         guard watch_id.range(of: "^[a-f0-9]{32}$", options: .regularExpression) != nil,
@@ -101,7 +108,7 @@ public enum Evidence {
         }
         return false
     }
-    public static func coverIntent(_ observed: String?) -> String { observed == "open" ? "close" : "open" }
+    public static func coverIntent(_ observed: String?) -> String { ToggleIntent.coverPresentation(observed) == "OPEN" ? "close" : "open" }
 }
 
 

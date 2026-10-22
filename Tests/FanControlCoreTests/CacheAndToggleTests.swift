@@ -39,4 +39,17 @@ final class CacheAndToggleTests: XCTestCase {
         XCTAssertFalse(ToggleIntent.replaces("turn_off","speed4"))
         XCTAssertNil(ToggleIntent.opposite("honk"))
     }
+    func testInitialAndMovingCoversChooseOppositeOfDisplayedStateWithoutClaimingConfirmation() {
+        for observed in [nil, "unknown", "unavailable", "closed", "closing"] as [String?] {
+            XCTAssertEqual(ToggleIntent.coverPresentation(observed), "CLOSED")
+            XCTAssertEqual(Evidence.coverIntent(observed), "open")
+        }
+        for observed in ["open", "opening"] {
+            XCTAssertEqual(ToggleIntent.coverPresentation(observed), "OPEN")
+            XCTAssertEqual(Evidence.coverIntent(observed), "close")
+        }
+        // Once the first tap projects OPEN, a second tap chooses CLOSE even
+        // if a delayed CLOSED observation arrives in between.
+        XCTAssertEqual(ToggleIntent.opposite("trunk_open"), "trunk_close")
+    }
 }
