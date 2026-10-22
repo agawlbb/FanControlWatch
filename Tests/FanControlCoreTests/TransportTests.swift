@@ -4,6 +4,19 @@ import CryptoKit
 
 final class MockProtocol: URLProtocol {
     static var handle: ((URLRequest) throws -> (Int, Data))?
+    static func body(_ request: URLRequest) throws -> Data {
+        if let data = request.httpBody { return data }
+        // URLSession may move the POST body into a stream before URLProtocol.
+        let stream = try XCTUnwrap(request.httpBodyStream)
+        stream.open(); defer { stream.close() }
+        var data = Data(); var bytes = [UInt8](repeating:0,count:4096)
+        while true {
+            let count = stream.read(&bytes,maxLength:bytes.count)
+            if count < 0 { throw stream.streamError ?? URLError(.cannotDecodeRawData) }
+            if count == 0 { return data }
+            data.append(contentsOf:bytes.prefix(count))
+        }
+    }
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
@@ -26,6 +39,21 @@ final class TransportTests: XCTestCase {
         return Integration(c,http:HTTP(configuration:config))
     }
     override func tearDown() { MockProtocol.handle = nil; super.tearDown() }
+    func testPrivateMusicChunkUsesLargerBudgetWithoutRelaxingOrdinaryReads() async throws {
+        let c = try client()
+        MockProtocol.handle = { request in
+            let packet = try JSONSerialization.jsonObject(with: MockProtocol.body(request)) as! [String: Any]
+            let aad = "fan-control-v1:\(packet["watch_id"]!):\(packet["timestamp"]!):\(packet["nonce"]!):response"
+            let plain = try JSONSerialization.data(withJSONObject: ["data":Data(repeating:42,count:196608).base64EncodedString(), "offset":0])
+            let key = SymmetricKey(data:try Data(hex:String(repeating:"a",count:64)))
+            let box = try AES.GCM.seal(plain,using:key,authenticating:Data(aad.utf8))
+            let envelope = ["iv":Data(box.nonce).base64EncodedString(),"ciphertext":(box.ciphertext + box.tag).base64EncodedString()]
+            return (200,try JSONSerialization.data(withJSONObject:envelope))
+        }
+        let chunk = try await c.request(["action":"exercise_music_chunk","name":"01 song.mp3","offset":0])
+        XCTAssertEqual(Data(base64Encoded:chunk["data"] as! String)?.count,196608)
+        do { _ = try await c.request(["action":"state","entity":"fan.test"]); XCTFail("Ordinary reads must retain the small limit") } catch {}
+    }
     func testAmbiguousCommandNeverFallsBackToAnotherEndpoint() async throws {
         let c = try client(); var hosts = [String]()
         MockProtocol.handle = { request in hosts.append(request.url!.host!); throw URLError(.timedOut) }

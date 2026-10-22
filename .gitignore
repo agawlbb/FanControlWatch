@@ -7,3 +7,10 @@ build/
 *.p12
 *.mobileprovision
 .env*
+private-music/
+*.[mM][pP]3
+*.[mM]4[aA]
+*.[aA][aA][cC]
+*.[wW][aA][vV]
+*.[aA][iI][fF][fF]
+*.[fF][lL][aA][cC]

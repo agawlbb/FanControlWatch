@@ -1,8 +1,10 @@
 import SwiftUI
 import WatchKit
+import UserNotifications
 import FanControlCore
 
 @main struct FanControlApp: App {
+    init() { UNUserNotificationCenter.current().delegate = ExerciseAlerts.shared }
     var body: some Scene {
         WindowGroup { ControlsView() }
             .backgroundTask(.appRefresh(BackgroundRefresh.identifier)) { await BackgroundRefresh.run() }
@@ -24,7 +26,11 @@ import FanControlCore
     private var generation = UUID()
     private var visible = false
     @Published private var sessionTarget: String?
-    var device: Device? { connection?.devices.first { $0.entity == (sessionTarget ?? connection?.entity) } }
+    @Published private(set) var showingSettings = false
+    var device: Device? {
+        guard !showingSettings else { return nil }
+        return connection?.devices.first { $0.entity == (sessionTarget ?? connection?.entity) }
+    }
     var busy: Bool { feedback?.phase == .pending }
     // Action requests can start before the first observation. Keep entry reads
     // running so the settled visible-entry wake cannot be blocked by that tap.
@@ -40,16 +46,24 @@ import FanControlCore
         // A refresh launch can instantiate the view without user-visible entry.
         guard WKExtension.shared().applicationState == .active else { return }
         leave(resetReceipts: resetSelection); visible = true
-        if resetSelection { connection = Vault.load(); sessionTarget = nil; feedback = nil }
+        if resetSelection { connection = Vault.load(); sessionTarget = nil; showingSettings = false; feedback = nil }
         observed = connection.flatMap { c in device.map { ObservationCache.shared.load(c, $0) } } ?? [:]
         BackgroundRefresh.schedule()
+        // Settings is local navigation, with no device reads, entry wake or controls.
+        if showingSettings { observed = [:]; return }
         #if DEBUG
         if let preview = ControlPreview.snapshot() {
             connection = preview.0; observed = preview.1; stateFresh = true
+            #if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.arguments.contains("--preview-exercise") {
+                ExercisePlayer.shared.preview(playing: ProcessInfo.processInfo.arguments.contains("--preview-playing"))
+            }
+            #endif
             if ProcessInfo.processInfo.arguments.contains("--preview-pending") {
                 feedback = Feedback(target: preview.0.identity, command: "climate_off", label: "Climate OFF")
             }
             let args = ProcessInfo.processInfo.arguments
+            if args.contains("--preview-settings") { showingSettings = true; observed = [:]; return }
             if args.contains("--preview-action-pending") || args.contains("--preview-action-accepted") {
                 let action = args.contains("--preview-exercise") ? "start_exercise" : "honk"
                 let f = Feedback(target: preview.0.watch_id + "|panel.preview", command: action, label: "Activated")
@@ -80,14 +94,19 @@ import FanControlCore
         }
     }
     func swipe(_ direction: Int) {
-        guard let c = connection, let current = device,
-              let index = c.devices.firstIndex(of: current), c.devices.count > 1 else { return }
-        let next = (index + direction + c.devices.count) % c.devices.count
-        leave(resetReceipts: false); sessionTarget = c.devices[next].entity; observed = [:]; feedback = nil
+        guard let c = connection else { return }
+        let current: WatchPage = showingSettings ? .settings : .device(sessionTarget ?? c.entity)
+        let next = WatchPage.next(current, entities: c.devices.map(\.entity), active: c.entity, direction: direction)
+        leave(resetReceipts: false); observed = [:]; feedback = nil
+        switch next {
+        case .settings: showingSettings = true
+        case .device(let entity): showingSettings = false; sessionTarget = entity
+        }
         enter(resetSelection: false)
     }
     private func panelBody(_ p: Panel, command: String? = nil) -> [String: Any] {
         var body: [String: Any] = ["action": command == nil ? "panel_state" : "panel_command", "panel_id": p.id]
+        if p.type == "exercise" { body["music_mode"] = "local" }
         if let command { body["command"] = command; body["panel_config"] = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) }
         return body
     }
@@ -103,6 +122,7 @@ import FanControlCore
             let next = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: complete)).validated()
             guard ticket == generation, !Task.isCancelled, canRefresh else { return }
             if next != old {
+                ExercisePlayer.shared.stopIfTargetChanged(next)
                 if next.devices != old.devices || next.watch_id != old.watch_id { actionReceipts.clear() }
                 try Vault.save(next); connection = next; observed = [:]; feedback = nil
                 if !next.devices.contains(where: { $0.entity == sessionTarget }) { sessionTarget = nil }
@@ -161,22 +181,23 @@ import FanControlCore
         if receiptAction { actionReceipts.begin(f) }
         feedback = f; message = "Requested"; musicEvidence = ""
         let ticket = generation
-        if action == "start_exercise", let url = URL(string: "spotify:") {
-            WKExtension.shared().openSystemURL(url)
-            musicEvidence = "Spotify playback unknown"
+        if action == "start_exercise" {
+            ExercisePlayer.shared.start(c, target: d)
         }
+        if action == "stop_exercise" { ExercisePlayer.shared.stop() }
+        let exerciseAlert = ["start_exercise", "stop_exercise"].contains(action) ? ExerciseAlerts.shared.begin(target: c.watch_id + "|" + d.entity, action: action) : nil
         command = Task {
             let deadline = Date().addingTimeInterval(60)
             let operationID = UUID().uuidString.lowercased()
             let issued = Int(Date().timeIntervalSince1970 * 1000)
             var sent = false
-            var musicSent = false
             var completed = false
             var receiptAccepted = false
+            var stopAccepted = false
             defer {
                 if ticket == generation && feedback?.id == f.id && feedback?.phase == .pending { feedback?.phase = .unconfirmed; message = "Not confirmed" }
                 if ticket == generation && receiptAction && !receiptAccepted { actionReceipts.finish(f, accepted: false) }
-                if action == "stop_exercise" && !completed && !receiptAccepted {
+                if action == "stop_exercise" && !completed && !stopAccepted {
                     var cancel = panelBody(d.panel!, command: "cancel_stop"); cancel["operation_id"] = operationID
                     let cancellationBody = cancel
                     Task { _ = try? await client.request(cancellationBody) }
@@ -190,12 +211,18 @@ import FanControlCore
                     let config = try await client.request(["action": "config", "platform": "watch_os"])
                     var full = config; full["token"] = c.token; full["watch_id"] = c.watch_id
                     let live = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: full)).validated()
-                    guard live == c else { throw ControlError.invalidConfiguration }
+                    // HA may select Driving after this accepted Stop completes.
+                    // Keep polling the same approved operation, never a new target.
+                    var comparable = live
+                    if action == "stop_exercise" && stopAccepted { comparable.entity = c.entity }
+                    guard comparable == c else { throw ControlError.invalidConfiguration }
                     try Task.checkCancellation()
                     guard ticket == generation, feedback?.id == f.id else { return }
-                    var state = try await client.request(stateBody(d))
+                    var state: [String: Any] = [:]
+                    if action != "stop_exercise" { state = try await client.request(stateBody(d)) }
                     var body = d.panel.map { panelBody($0, command: action) } ?? ["action": "command", "entity": d.entity, "command": action]
-                    if action == "stop_exercise" { body["operation_id"] = operationID; body["issued_at_ms"] = issued }
+                    if action == "start_exercise" || action == "stop_exercise" { body["music_mode"] = "local" }
+                    if action == "start_exercise" || action == "stop_exercise" { body["operation_id"] = operationID; body["issued_at_ms"] = issued }
                     let available: Bool
                     if let p = d.panel, p.type != "fan" {
                         let ready = !p.vehicle || state["vehicle_ready"] as? Bool == true || action.hasPrefix("garage_")
@@ -203,7 +230,8 @@ import FanControlCore
                         else if action.hasPrefix("climate_") { available = ready && state["climate_available"] as? Bool == true && (action != "climate_off" || p.type != "driving" || state["climate_off_available"] as? Bool == true) }
                         else if action == "honk" { available = ready && state["honk_available"] as? Bool == true }
                         else if action == "podcast" { available = state["podcast_available"] as? Bool == true }
-                        else { available = ready && state[action == "leave" ? "script_available" : action == "start_exercise" ? "start_available" : "stop_available"] as? Bool == true }
+                        else if action == "stop_exercise" { available = true }
+                        else { available = ready && state[action == "leave" ? "script_available" : "start_available"] as? Bool == true }
                     } else { available = ["on", "off"].contains(state["state"] as? String ?? "") || ["script", "scene"].contains(d.domain) && !["unknown", "unavailable", ""].contains(state["state"] as? String ?? "") }
                     try Task.checkCancellation()
                     guard ticket == generation, feedback?.id == f.id, connection == c else { return }
@@ -218,31 +246,35 @@ import FanControlCore
                             // Delivery may have happened. Poll evidence without replaying the command.
                             state = [:]
                         }
-                        if receiptAction && commandResponded {
+                        if receiptAction && commandResponded && (action != "start_exercise" || Evidence.matches(action, state, panel: d.panel)) {
                             guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
-                            guard ActionReceipts.acknowledges(action, response: state) else { throw ControlError.notConfirmed }
+                            if action == "stop_exercise", ["pending", "complete"].contains(state["operation_status"] as? String ?? "") {
+                                // HA owns bounded continuation once accepted, even though
+                                // the UI stays gray until the operation actually completes.
+                                stopAccepted = true
+                            }
+                            guard ActionReceipts.acknowledges(action, response: state) else {
+                                if action != "stop_exercise" || state["operation_status"] as? String != "pending" { throw ControlError.notConfirmed }
+                                // Keep polling this operation; acceptance alone is not completion.
+                                try await Task.sleep(nanoseconds: 700_000_000)
+                                continue
+                            }
                             receiptAccepted = true; actionReceipts.finish(f, accepted: true)
+                            if let exerciseAlert, Evidence.matches(action, state, panel: d.panel) { ExerciseAlerts.shared.confirm(exerciseAlert) }
                         }
                         if action == "activate" || action == "leave" || action == "honk" || action == "podcast" || action == "stop_exercise" && receiptAccepted {
                             guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                             feedback?.phase = .accepted; message = "Request accepted"; return
                         }
                     }
-                    if action == "start_exercise" && !musicSent && sent {
-                        musicSent = true
-                        // Music has its own one-shot evidence and cannot confirm vehicle state.
-                        do { _ = try await client.request(panelBody(d.panel!, command: "start_music")); musicEvidence = "Music dispatch accepted · playback unknown" }
-                        catch { musicEvidence = "Music not confirmed" }
-                    }
                     guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
                     if receiptAccepted { feedback?.phase = .accepted; message = ""; return }
-                    // Preserve the separate one-shot music request after an
-                    // ambiguous Start response, without treating a later state
-                    // read as this tap's receipt. Stop keeps its existing stable
-                    // operation-ID delivery retries until HA acknowledges it.
-                    if action == "start_exercise" && sent { throw ControlError.notConfirmed }
+                    // Start is dispatched once; subsequent reads only establish
+                    // its lock outcome. Stop retains its stable operation ID.
                     if sent && Evidence.matches(action, state, panel: d.panel) {
                         completed = true
+                        if receiptAction { actionReceipts.finish(f, accepted: true) }
+                        if let exerciseAlert { ExerciseAlerts.shared.confirm(exerciseAlert) }
                         ObservationCache.shared.save(state, connection: c, device: d)
                         observed = state; stateFresh = true; feedback?.phase = .confirmed; message = ""; return
                     }
@@ -259,7 +291,7 @@ import FanControlCore
         if busy { feedback?.phase = .unconfirmed; message = "Not confirmed" }
     }
     func paired(_ value: Connection) { connection = value; enter() }
-    func forget() { leave(); ObservationCache.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
+    func forget() { leave(); showingSettings = false; ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
 }
 
 

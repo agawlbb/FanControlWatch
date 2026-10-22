@@ -40,3 +40,15 @@ resets them. Rejection, timeout and ambiguous transport failure remain gray.
 Receipt evidence does not populate observed state or claim physical completion.
 An accepted Stop leaves HA's existing continuation and completion-based Driving
 selection running. Fan tile, speed control, power/climate/cover toggles unchanged.
+
+
+## October 20 batch - 0.4.0 (9)
+
+- Untouched actions open teal and tappable without observed-state readiness gates.
+- Gray power/climate/cover toggles remain tappable. Each tap reverses the displayed requested or last-known state using an explicit absolute command. Same-toggle pending work can be superseded; stale callbacks cannot change newer feedback. Speed adjustment keeps its existing quiet window.
+- Passive background refresh requests HA selection and fan observations about every 15 minutes when watchOS permits. Requests disable watch cellular access while allowing expensive phone-proxy routes; physical phone-cellular versus watch-LTE verification remains. Background reads send no wake or control commands.
+- Valid observed fan power/speed persists across sessions. Initial display uses exact watch/configuration cache in gray until fresh confirmation; unknown/unavailable responses retain cached fan state.
+- Driving adds Podcast in a two-column, three-row grid. HA 0.5.2 supplies its optional script role; configure the Podcast script in HA.
+- Exercise/Spotify troubleshooting remains paused. Existing behavior is unchanged.
+
+Source d4f29cd9a3a05f8fce26d77e337069e759c0d5e1 passed 24 Swift tests, simulator and unsigned archive in run 39433912115. Signed archive/export/profile checks and upload passed in run 39433947519. HA source b3b1903 passed 172 tests locally; Android validateDebug passed. Hardware checks remain for scheduling, radio routing, rapid reversals, watch rendering and physical car behavior.

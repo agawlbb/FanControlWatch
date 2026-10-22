@@ -13,7 +13,7 @@ public final class HTTP: @unchecked Sendable {
         session = URLSession(configuration: configuration, delegate: RedirectPolicy(), delegateQueue: nil)
     }
     deinit { session.invalidateAndCancel() }
-    public func post(_ base: String, path: String, body: [String: Any], token: String? = nil) async throws -> [String: Any] {
+    public func post(_ base: String, path: String, body: [String: Any], token: String? = nil, maximumResponseBytes: Int = 24576) async throws -> [String: Any] {
         let url = try Connection.address(base).appendingPathComponent(path)
         var r = URLRequest(url: url); r.httpMethod = "POST"
         r.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -23,7 +23,7 @@ public final class HTTP: @unchecked Sendable {
         try Task.checkCancellation()
         guard let response = response as? HTTPURLResponse else { throw ControlError.invalidResponse }
         guard (200..<300).contains(response.statusCode) else { throw ControlError.rejected(response.statusCode) }
-        guard data.count <= 24576, let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ControlError.invalidResponse }
+        guard data.count <= maximumResponseBytes, let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ControlError.invalidResponse }
         return json
     }
 }
@@ -48,7 +48,7 @@ public actor Integration {
         let aad = "fan-control-v1:\(connection.watch_id):\(timestamp):\(nonce)"
         let key = SymmetricKey(data: try Data(hex: connection.token))
         let box = try AES.GCM.seal(JSONSerialization.data(withJSONObject: body), using: key, authenticating: Data(aad.utf8))
-        let result = try await http.post(address, path: "api/fan_control/watch/request", body: ["watch_id": connection.watch_id, "timestamp": timestamp, "nonce": nonce, "iv": Data(box.nonce).base64EncodedString(), "ciphertext": (box.ciphertext + box.tag).base64EncodedString()])
+        let result = try await http.post(address, path: "api/fan_control/watch/request", body: ["watch_id": connection.watch_id, "timestamp": timestamp, "nonce": nonce, "iv": Data(box.nonce).base64EncodedString(), "ciphertext": (box.ciphertext + box.tag).base64EncodedString()], maximumResponseBytes: body["action"] as? String == "exercise_music_chunk" ? 524288 : 24576)
         let plain = try open(result, key: key, aad: aad + ":response")
         guard let json = try JSONSerialization.jsonObject(with: plain) as? [String: Any] else { throw ControlError.invalidResponse }
         return json

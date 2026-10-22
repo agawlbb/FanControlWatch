@@ -6,9 +6,23 @@ struct ControlsView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var setup = false
     var body: some View {
-        ScrollView {
+        Group {
+          if !model.showingSettings, model.device?.panel?.type == "exercise" {
+            GeometryReader { geometry in
+                VStack(spacing: 4) {
+                    actionControl("start_exercise", "Start exercise", compact: true)
+                    ExercisePlaybackView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                    actionControl("stop_exercise", "Stop exercise", compact: true)
+                }
+                .padding(.horizontal, 5)
+                .frame(width: geometry.size.width, height: geometry.size.height)
+            }
+          } else {
+           ScrollView {
             VStack(spacing: 10) {
-                if let d = model.device {
+                if model.showingSettings {
+                    SettingsPage(model: model, openConnection: { setup = true })
+                } else if let d = model.device {
                     if let p = d.panel, p.type == "driving" {
                         let rgb = p.color ?? [92, 225, 193]
                         Rectangle().fill(Color(red: Double(rgb[0])/255, green: Double(rgb[1])/255, blue: Double(rgb[2])/255)).frame(height: 5).accessibilityHidden(true)
@@ -25,16 +39,17 @@ struct ControlsView: View {
                 }
             }.padding(.horizontal, 5)
         }
+          }
+        }
         .persistentSystemOverlays(.hidden)
         .simultaneousGesture(DragGesture(minimumDistance: 35).onEnded { value in
             guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
             model.swipe(value.translation.width < 0 ? 1 : -1)
         })
-        .contextMenu { Button("Connection settings") { setup = true } }
         .onOpenURL { url in
             if url.scheme == "fancontrol", url.host == "active" { model.enter() }
         }
-        .sheet(isPresented: $setup, onDismiss: { model.enter() }) { SetupView(model: model) }
+        .sheet(isPresented: $setup, onDismiss: { model.enter(resetSelection: false) }) { SetupView(model: model) }
         .onAppear { model.enter() }
         .onDisappear { model.leave() }
         .onChange(of: scenePhase) { _, phase in if phase == .active && !setup { model.enter() } else { model.leave() } }
@@ -88,8 +103,9 @@ struct ControlsView: View {
                 actionControl("podcast", "Podcast")
             }
         } else if p.type == "exercise" {
-            actionControl("start_exercise", "Start exercise")
-            actionControl("stop_exercise", "Stop exercise")
+            actionControl("start_exercise", "Start exercise", compact: true)
+            ExercisePlaybackView()
+            actionControl("stop_exercise", "Stop exercise", compact: true)
         } else {
             let battery = model.observed["battery"] as? Double
             Text(battery.map { String(format: "%.0f%%", $0) } ?? "?%")
@@ -98,16 +114,20 @@ struct ControlsView: View {
             actionControl("leave", p.script_label ?? "Leave for work")
         }
     }
-    private func actionControl(_ action: String, _ label: String) -> some View {
+    @ViewBuilder private func actionControl(_ action: String, _ label: String, compact: Bool = false) -> some View {
         let receipt = model.actionFeedback(action)
         let gray = ActionReceipts.isGray(receipt)
-        return Button { model.send(action, label: label) } label: {
+        let button = Button { model.send(action, label: label) } label: {
             Text(receipt == nil ? label : "Activated")
-                .frame(maxWidth: .infinity, minHeight: 40)
+                .frame(maxWidth: .infinity, minHeight: compact ? 36 : 40)
                 .foregroundStyle(gray ? Color.gray : Color.mint)
         }
         .tint(gray ? Color.gray.opacity(0.25) : Color.mint.opacity(0.18))
         .disabled(model.busy)
+        if compact {
+            button.buttonStyle(.plain)
+                .background(gray ? Color.gray.opacity(0.12) : Color.mint.opacity(0.10), in: RoundedRectangle(cornerRadius: 22))
+        } else { button }
     }
     private func climate(_ p: Panel) -> some View {
         let on = model.observed["climate_on"] as? Bool == true
@@ -125,8 +145,25 @@ struct ControlsView: View {
     }
 }
 
+private struct SettingsPage: View {
+    @ObservedObject var model: WatchModel
+    @ObservedObject private var player = ExercisePlayer.shared
+    let openConnection: () -> Void
+    var body: some View {
+        VStack(spacing: 10) {
+            Label("Settings", systemImage: "gearshape").font(.headline)
+            Button("Connection settings", action: openConnection)
+            Button(player.syncing ? "Syncing music…" : "Sync exercise music") {
+                if let c = model.connection { player.sync(c) }
+            }.disabled(player.syncing || model.connection == nil)
+            if !player.status.isEmpty { Text(player.status).font(.caption2).foregroundStyle(.secondary) }
+        }
+    }
+}
+
 struct SetupView: View {
     @ObservedObject var model: WatchModel
+    @ObservedObject private var player = ExercisePlayer.shared
     @Environment(\.dismiss) private var dismiss
     @State private var address = ""
     @State private var status = "Enter your Home Assistant local or HTTPS address."
@@ -137,6 +174,10 @@ struct SetupView: View {
             if model.connection != nil {
                 Text("Paired. Configure devices and panels in Home Assistant.")
                 Text("Watch ID: \(model.connection!.watch_id)").font(.caption2)
+                Button(player.syncing ? "Syncing music…" : "Sync exercise music") {
+                    if let c = model.connection { player.sync(c) }
+                }.disabled(player.syncing)
+                if !player.status.isEmpty { Text(player.status).font(.caption2) }
                 Button("Forget connection", role: .destructive) { model.forget(); dismiss() }
             } else {
                 TextField("https://home.example", text: $address).textInputAutocapitalization(.never).autocorrectionDisabled()
