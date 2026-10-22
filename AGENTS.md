@@ -1,108 +1,69 @@
-# Watch command feedback
+# Apple Watch and iPhone development
 
-## October 20, 2026 update
+## Repository ownership and offline work
 
-Gray toggles remain tappable. Reverse the displayed requested or cached state with
-an explicit ON/OFF or OPEN/CLOSE command, never a toggle service. A newer tap on
-the same toggle supersedes old UI work; stale callbacks cannot change its state.
-Keep speed adjustment behavior unchanged. This supersedes older pending-toggle
-disabling rules below.
+The canonical repositories are `C:/Users/mailb/StudioProjects/FanControl/apple-watch`
+(agawlbb/FanControlWatch) and `C:/Users/mailb/StudioProjects/FanControl/ha-integration`
+(agawlbb/FanControlHA). Work only in the repository assigned to the task.
+The connected laptop owner is the chat "Explore push wakeups for Apple Watch";
+coordinate handoff before another chat writes. Verify current heads and local
+changes before editing; preserve unexpected work. Labelled recovery copies remain
+archives and must not become active checkouts.
 
-Request passive background refresh about every 15 minutes under watchOS scheduling.
-Read HA selection and fan observations only; never wake vehicles or send controls.
-Disable the watch cellular radio for these requests while permitting expensive
-phone-proxied routes. Verify phone-cellular routing on hardware. Persist only valid
-observations scoped to watch, credentials, server and exact device configuration;
-show cached state gray until a fresh observation. Spotify work is paused.
+When explicitly asked to work offline, use a named `codex/` branch in the same
+repository. On laptop return, the owner reviews, merges, validates and synchronizes
+that branch. Delete it only after its work is preserved. Complete work with commits
+and pushes; verify clean local state and matching GitHub heads before reporting done.
+Inspect push workflows first. Do not trigger releases, deployment, device installation
+or distributable builds without authorization. Never change branch protections
+without specific approval. Back up before deletion/history rewrite, exclude ignored
+credentials/runtime/signing material, preserve release tags, and use exact-SHA
+force-with-lease for authorized rewrites. Never purge recovery archives.
 
+## Current behavior
 
-## Action receipt update — 0.3.1
+The iPhone owns routine APNs/background refresh and visible-phone polling. The
+watch renders persisted snapshots and asks the phone once on visible entry; do
+not add watch background polling or a foreground refresh loop. Phone/background
+reads never wake vehicles. Direct watch commands and their bounded validation
+and confirmation remain independent of the phone.
 
-Untouched actions open teal and tappable without requiring a fresh observation
-or an availability flag. Only a conflicting pending command disables them.
-Gray Activated begins after a tap; HA receipt restores teal Activated. Continue
-validating configuration and dispatch readiness in the background. Keep entry
-reads running during pending actions so an early tap cannot block entry wake.
+HA selects the opening panel. Saved phone preferences define a fixed swipe order;
+swiping never changes HA selection. Settings is reached by holding a watch page,
+not by swiping. Keep the phone UI minimal. Only Driving has an identification stripe.
+Visible primary vehicle entry wakes after target validation without artificial
+delay; swipe entry waits 1.5 seconds continuously visible. Leaving cancels entry
+work. No cooldown; prefetch/configuration/command retries must never wake vehicles.
 
-Leave for Work, Honk Horn, Start Exercise and Stop Exercise use teal command
-names when ready, gray Activated on tap, then teal Activated after authenticated
-HA acceptance. Retain each receipt while actively displayed, through refreshes
-and temporary swipes; reset on leaving or configuration change. Acceptance is
-receipt evidence only, never physical completion. An acknowledged Stop must not
-cancel HA's continuation; Driving selection still requires operation completion.
-Stale callbacks and errors cannot acknowledge a tap. Do not modify toggles,
-the fan tile or fan speed for this update.
+## Command evidence
 
-## Apple Watch interaction update (October 19, 2026)
+Immediately project the requested absolute outcome in gray on the originating
+control. Never store projection as observed state. Gray toggles remain tappable:
+an opposite absolute intent supersedes earlier UI work. Preserve the one-second
+fan-speed quiet window. Stale responses cannot recolor another request or target.
+Matching available HA observations can confirm toggles, fan speed and covers in
+teal. Unknown, unavailable, mismatched, timed-out and ambiguous results stay gray.
+Garage/trunk initial CLOSED is only a gray assumption; its first tap is absolute
+OPEN. Dispatch cover/script/scene/music requests at most once per tap.
 
-The user's current instructions supersede the older HA-only navigation and
-verbose feedback rules below: swipe horizontally through approved panels/devices
-for the foreground session only. Never persist that choice or change HA's
-selection. A new foreground entry restores HA's selection. Only a displayed,
-settled vehicle panel may wake. All confirmed states, including OFF and CLOSED,
-use teal; pending, failed, unavailable and dispatch-only outcomes stay gray.
-Do not display command status prose, Spotify evidence captions or Cancel request.
-Keep the evidence internally without claiming completion. Driving has a 2×2 grid
-for garage, trunk, climate toggle and the HA-configured one-shot horn button.
+Leave for Work, Horn, Start/Stop Exercise and Podcast show gray Activated after
+a tap and teal Activated only after authenticated HA acceptance; that is receipt,
+not physical completion or playback proof. Retain receipts for the active session
+and reset on leaving/configuration change. Generic script/scene controls preserve
+their existing receipt semantics. Pending conflicting actions remain disabled.
+Stop continuation must survive accepted dispatch; Driving selection requires HA
+operation completion. Local Exercise Stop confirms unlock and climate on; the
+63 F temperature request is best effort. Preserve existing legacy-client semantics.
 
-This is a required interaction rule for every current and future watch command,
-on the main tile, separate Exercise tile, full-screen device/panel pages, and
-any new watch screen or control.
+Keep imported audio private and offline on the watch. Verify a whole replacement
+before installing it; preserve the playing library until the next session. Phone
+snapshots contain no command credential and cannot confirm a watch command.
 
-- Immediately show the user's requested outcome on the existing control, before
-  network work finishes. Use gray text/background while unconfirmed. Show the
-  requested ON/OFF state, speed, lock/climate outcome, or REQUESTED for an action.
-- Keep requested presentation separate from observed/confirmed state. Never
-  write optimistic projections into the confirmed cache. Preserve one absolute
-  intent through reads/retries so the action cannot invert after the tap.
-- Only change the requested outcome to its confirmed color after evidence for
-  that same watch, target, configuration and command. Receiving any response or
-  finishing a request is not confirmation. Unavailable/unknown/mismatched state
-  is not confirmation. Use CommandFeedback colors and VehicleFeedback semantics
-  rather than equating an enabled/clickable button with confirmed success.
-- Confirm power/speed/climate/lock from available observed state matching the
-  request. Exercise Stop requires confirmation of all required HA operation
-  steps. An HA observation is not independent proof of physical vehicle state.
-- Scripts/scenes can confirm only dispatch acknowledgment: keep REQUESTED or
-  Request accepted wording; never imply script completion. Spotify app launch,
-  playback request and pause request do not prove playback or pause occurred.
-  Report their own available evidence; vehicle confirmation cannot confirm music.
-- While pending, disable conflicting command controls. Preserve fan speed draft
-  adjustment during its existing one-second quiet window. Do not add retries to
-  one-shot script, scene or music requests to obtain a prettier confirmation.
-- Timeout, cancellation, rejection and ambiguous errors must never promote a
-  requested outcome into confirmed colors. Show Not confirmed/unknown or replace
-  it with a subsequent actual observed state. Keep terminal panel failures gray
-  and distinguish retry availability from confirmation. Stale callbacks must not
-  clear or recolor newer requests or another target. Leaving cancels ordinary
-  UI work; existing explicit bounded foreground delivery may continue screen-off.
-- Preserve external app handoffs such as Start opening Spotify; keep feedback on
-  the originating control and don't introduce a waiting screen to show progress.
+## Validation
 
-For command changes, check every surface that exposes the command and cover
-immediate projection, delayed/mismatched/unavailable confirmation, successful
-confirmation, failure/timeout/cancellation, and stale target/callback handling.
-Run `gradlew.bat validateDebug` (APK, unit tests, lint) before delivery of watch
-code changes. Report the tested version and remaining physical-watch checks.
-Do not claim that automated tests verify actual WearOS rendering or car behavior.
-
-## Driving panel
-
-Driving uses HA-configured distinct garage/trunk cover roles, climate ON, and
-vehicle wake/online roles. Keep its separate tile, active-panel main tile and
-full-screen app page consistent. Initial trunk CLOSED is a gray presentation
-assumption only: accept the first tap as an absolute OPEN intent, never invert
-it after a late read, and never cache the assumption as observed state. Cover
-commands dispatch at most once per tap, then poll for matching observed state.
-Keep wake limited to displayed, settled vehicle entry only; configuration,
-prefetch and background reads never wake the vehicle. Setup belongs in the
-native HA panel manager, like Work Morning and Exercise, without hardcoded IDs.
-
-Garage and trunk both use an initial gray CLOSED assumption with an immediate
-absolute OPEN tap. Panel RGB identification colors are separate from gray/mint
-command feedback. Show only the HA-selected device/panel in the app; do not expose watch-side
-panel navigation. The identification bar is decorative and does not navigate. Only visible settled vehicle entry may send wake; command
-delivery/retries, offscreen pages, prefetch and background work must not wake.
-
-
-Driving-only identification bars: show the configured colored stripe only for Driving panels, on native tiles and full-screen controls. Fan, Work Morning and Exercise must not display identification bars. HA-only selection remains unchanged.
+Preserve regression tests and build/release configuration. For command changes,
+cover immediate intent, delayed/mismatched/unavailable evidence, confirmation,
+failure/cancellation and stale callbacks across exposed surfaces. Run appropriate
+core tests; simulator/signing builds require their own authorization. Report exact
+source and remaining paired-device checks. Automated checks do not establish real
+watch rendering, APNs delivery, playback or vehicle behavior.

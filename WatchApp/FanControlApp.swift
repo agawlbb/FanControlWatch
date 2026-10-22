@@ -5,7 +5,7 @@ import FanControlCore
 
 @main struct FanControlApp: App {
     @WKApplicationDelegateAdaptor(PushNotifications.self) private var pushDelegate
-    init() { UNUserNotificationCenter.current().delegate = ExerciseAlerts.shared }
+    init() { UNUserNotificationCenter.current().delegate = ExerciseAlerts.shared; WatchCompanion.shared.start() }
     var body: some Scene {
         WindowGroup { ControlsView() }
             .backgroundTask(.appRefresh(BackgroundRefresh.identifier)) { await BackgroundRefresh.run() }
@@ -34,9 +34,6 @@ import FanControlCore
         return connection?.devices.first { $0.entity == (sessionTarget ?? connection?.entity) }
     }
     var busy: Bool { feedback?.phase == .pending }
-    // Action requests can start before the first observation. Keep entry reads
-    // running so the settled visible-entry wake cannot be blocked by that tap.
-    private var canRefresh: Bool { !busy || feedback.map { ActionReceipts.applies($0.command) } == true }
     var canAdjustSpeed: Bool { visible && device?.domain == "fan" && (!busy || feedback?.command == "turn_on") }
     var displayedSpeed: Int {
         if let speedDraft { return speedDraft }
@@ -54,15 +51,14 @@ import FanControlCore
         // A refresh launch can instantiate the view without user-visible entry.
         guard WKExtension.shared().applicationState == .active else { return }
         leave(resetReceipts: resetSelection); visible = true
-        if resetSelection { connection = Vault.load(); sessionTarget = nil; showingSettings = false; feedback = nil; wakeAfter = nil }
+        if resetSelection { WatchCompanion.shared.beginEntry(); connection = Vault.load(); sessionTarget = nil; showingSettings = false; feedback = nil; wakeAfter = nil }
         // Migrate older unlocked-only keychain entries before the next wrist-down push.
         if let connection { try? Vault.save(connection) }
         if let connection, resetSelection {
             PushDiagnostics.shared.record("opened", connection: connection)
         }
         observed = connection.flatMap { c in device.map { ObservationCache.shared.load(c, $0) } } ?? [:]
-        BackgroundRefresh.schedule()
-        PushNotifications.register()
+        WatchCompanion.shared.requestLatest()
         // Settings is local navigation, with no device reads, entry wake or controls.
         if showingSettings { observed = [:]; return }
         #if DEBUG
@@ -92,31 +88,29 @@ import FanControlCore
         client = Integration(connection)
         let ticket = generation
         work = Task {
-            Task { await PushDiagnostics.flush(connection) }
-            // Resolve HA's current selection before the entry wake. A saved
-            // connection may still name a different car after a watch-face tap.
-            await refresh(ticket, allowEntryWake: allowEntryWake)
-            // Primary entry has no artificial delay. Swipes must remain visible
-            // for 1.5 seconds, including time spent resolving HA configuration.
+
+            // A foreground entry asks the phone once. Only explicit visible
+            // vehicle entry and user commands perform watch-side HA work.
             if let deadline = wakeAfter {
                 do { try await Task.sleep(until: deadline, clock: .continuous) } catch { return }
             }
-            var wakeAttempted = false
-            while !Task.isCancelled && ticket == generation && visible {
-                if allowEntryWake, stateFresh, !wakeAttempted, let p = device?.panel, p.vehicle,
-                   WKExtension.shared().applicationState == .active {
-                    wakeAttempted = true
-                    _ = try? await client?.request(panelBody(p, command: "wake"))
-                }
-                if canRefresh && speedDraft == nil { await refresh(ticket) }
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-            }
+            guard !Task.isCancelled, ticket == generation, visible,
+                  allowEntryWake, let d = device, let p = d.panel, p.vehicle else { return }
+            do {
+                let raw = try await Integration(connection).request(["action": "config", "platform": "watch_os"])
+                var full = raw; full["token"] = connection.token; full["watch_id"] = connection.watch_id
+                let live = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: full)).validated()
+                guard ticket == generation, visible, !Task.isCancelled,
+                      live.devices.contains(d), live.sameTarget(as: connection),
+                      WKExtension.shared().applicationState == .active else { return }
+                _ = try? await Integration(live).request(panelBody(p, command: "wake"))
+            } catch { /* A stale entry never wakes another target. */ }
         }
     }
     func swipe(_ direction: Int) {
         guard let c = connection else { return }
         let current: WatchPage = showingSettings ? .settings : .device(sessionTarget ?? c.entity)
-        let next = WatchPage.next(current, entities: c.devices.map(\.entity), active: c.entity, direction: direction)
+        let next = WatchPage.next(current, entities: (c.companion_settings ?? CompanionSettings()).ordered(c.devices.map(\.entity)), direction: direction)
         leave(resetReceipts: false); observed = [:]; feedback = nil
         switch next {
         case .settings: showingSettings = true
@@ -134,42 +128,6 @@ import FanControlCore
     private func stateBody(_ d: Device) -> [String: Any] {
         if let p = d.panel { return panelBody(p) }
         return ["action": "state", "entity": d.entity]
-    }
-    private func refresh(_ ticket: UUID, allowEntryWake: Bool = false) async {
-        guard let old = connection, let client else { return }
-        do {
-            let config = try await client.request(["action": "config", "platform": "watch_os"])
-            var complete = config; complete["token"] = old.token; complete["watch_id"] = old.watch_id
-            let next = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: complete)).validated()
-            guard ticket == generation, !Task.isCancelled, canRefresh else { return }
-            if !next.sameTarget(as: old) {
-                ExercisePlayer.shared.stopIfTargetChanged(next)
-                if next.devices != old.devices || next.watch_id != old.watch_id { actionReceipts.clear() }
-                try Vault.save(next); connection = next; observed = [:]; feedback = nil
-                if !next.devices.contains(where: { $0.entity == sessionTarget }) { sessionTarget = nil }
-                // A configuration refresh (including a push-induced change)
-                // must never be treated as a new foreground vehicle entry.
-                enter(resetSelection: false, allowEntryWake: allowEntryWake); return
-            }
-            if next.revision != old.revision {
-                try Vault.save(next); connection = next // Metadata refresh does not cancel an intent or restart entry.
-            }
-            guard let d = device else { observed = [:]; return }
-            let state = try await client.request(stateBody(d))
-            guard ticket == generation, !Task.isCancelled, canRefresh else { return }
-            ObservationCache.shared.save(state, connection: old, device: d)
-            if d.domain == "fan", !["on", "off"].contains(state["state"] as? String ?? "") {
-                observed = ObservationCache.shared.load(old, d); stateFresh = false
-            } else { observed = state; stateFresh = true }
-            message = ""
-            if !busy && speedDraft == nil { feedback = nil }
-        } catch {
-            guard ticket == generation, !Task.isCancelled else { return }
-            // A failed read is not an HA observation of unknown/off. Retain only
-            // this visible target's last observation in gray. Its toggle stays tappable.
-            stateFresh = false; message = "Connection interrupted"
-            if case ControlError.rejected(let status) = error, [401, 403].contains(status), connection == old { forget(); message = "Watch access revoked. Pair again." }
-        }
     }
     func actionFeedback(_ action: String) -> Feedback? {
         guard let c = connection, let d = device else { return nil }
@@ -197,6 +155,7 @@ import FanControlCore
         let replacing = busy && ToggleIntent.replaces(action, feedback?.command)
         guard (!busy || replacing), visible,
               let c = connection, let d = device, let client else { return }
+        WatchCompanion.shared.protectIntent(d.entity)
         if replacing { command?.cancel() }
         draft?.cancel(); speedDraft = nil
         let requested = RequestedPresentation.label(command: action, original: label)
@@ -313,7 +272,17 @@ import FanControlCore
         draft?.cancel(); speedDraft = nil; command?.cancel()
         if busy { feedback?.phase = .unconfirmed; message = "Not confirmed" }
     }
-    func paired(_ value: Connection) { connection = value; enter() }
+    func receiveCompanion() {
+        guard let saved = Vault.load() else { return }
+        // Persisted snapshots can arrive during a command. Never clear or
+        // recolor that intent; apply selection on its next safe entry.
+        guard feedback == nil, speedDraft == nil else { return }
+        let changed = connection.map { !$0.sameTarget(as: saved) } ?? true
+        connection = saved
+        if changed { enter(resetSelection: true, allowEntryWake: false) }
+        else if let d = device { observed = ObservationCache.shared.load(saved, d); stateFresh = false }
+    }
+    func paired(_ value: Connection) { connection = value; WatchCompanion.shared.provision(); enter() }
     func forget() { leave(); showingSettings = false; ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); PushDiagnostics.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
 }
 

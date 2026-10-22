@@ -45,6 +45,8 @@ struct ControlsView: View {
           }
         }
         .persistentSystemOverlays(.hidden)
+        .onReceive(NotificationCenter.default.publisher(for: .companionSnapshotSaved)) { _ in model.receiveCompanion() }
+        .onLongPressGesture { setup = true }
         .simultaneousGesture(DragGesture(minimumDistance: 35).onEnded { value in
             guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
             model.swipe(value.translation.width < 0 ? 1 : -1)

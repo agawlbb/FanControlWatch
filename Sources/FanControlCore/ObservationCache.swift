@@ -29,6 +29,7 @@ public final class ObservationCache: @unchecked Sendable {
         if state["climate_available"] as? Bool == true, let on = state["climate_on"] as? Bool {
             valid["climate_on"] = on
         }
+        if let battery = state["battery"] as? Double, battery.isFinite, (0...100).contains(battery) { valid["battery"] = battery }
         for role in ["garage", "trunk"] {
             if ["open", "closed"].contains(state[role + "_state"] as? String ?? "") { valid[role + "_state"] = state[role + "_state"] }
         }

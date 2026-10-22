@@ -52,19 +52,17 @@ if not result["data"]:
 else:
     print("Active-panel complication bundle ID already registered")
 
-# Enable only the watch app's push capability before refreshing signing profiles.
-# This uses the existing CI Apple account; it does not create an APNs private key.
-watch_identifier = "dev.fancontrol.watch.watchkitapp"
-result = request("bundleIds?"+urllib.parse.urlencode({"filter[identifier]":watch_identifier}))
-# Apple may include related identifiers; never enable a capability on a prefix match.
-matches = [item for item in result["data"] if item["attributes"]["identifier"] == watch_identifier]
-assert len(matches) == 1, "Exact watch bundle ID missing or ambiguous"
-watch_bundle = matches[0]["id"]
-capabilities = request("bundleIds/"+watch_bundle+"/bundleIdCapabilities")
-if not any(item["attributes"]["capabilityType"] == "PUSH_NOTIFICATIONS" for item in capabilities["data"]):
-    request("bundleIdCapabilities", {"data":{"type":"bundleIdCapabilities",
-        "attributes":{"capabilityType":"PUSH_NOTIFICATIONS"},
-        "relationships":{"bundleId":{"data":{"type":"bundleIds","id":watch_bundle}}}}})
-    print("Enabled watch app Push Notifications capability")
-else:
-    print("Watch app Push Notifications capability already enabled")
+# Existing phone and watch identities require independent APNs capabilities.
+for identifier in ("dev.fancontrol.watch", "dev.fancontrol.watch.watchkitapp"):
+    result = request("bundleIds?"+urllib.parse.urlencode({"filter[identifier]":identifier}))
+    matches = [item for item in result["data"] if item["attributes"]["identifier"] == identifier]
+    assert len(matches) == 1, "Exact bundle ID missing or ambiguous"
+    bundle = matches[0]["id"]
+    capabilities = request("bundleIds/"+bundle+"/bundleIdCapabilities")
+    if not any(item["attributes"]["capabilityType"] == "PUSH_NOTIFICATIONS" for item in capabilities["data"]):
+        request("bundleIdCapabilities", {"data":{"type":"bundleIdCapabilities",
+            "attributes":{"capabilityType":"PUSH_NOTIFICATIONS"},
+            "relationships":{"bundleId":{"data":{"type":"bundleIds","id":bundle}}}}})
+        print("Enabled Push Notifications: " + identifier)
+    else:
+        print("Push Notifications already enabled: " + identifier)
