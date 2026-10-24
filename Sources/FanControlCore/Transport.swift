@@ -72,6 +72,7 @@ public enum CommandEnvelope {
     }
 }
 public enum SecureCommandStorage {
+    public static func clear() { SecItemDelete(query as CFDictionary) }
     private static var query: [String: Any] { [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "dev.fancontrol.watch.commands", kSecAttrAccount as String: "outbox"] }
     public static func load() -> Data? {
         var result: CFTypeRef?

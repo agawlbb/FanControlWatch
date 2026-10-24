@@ -27,9 +27,8 @@ import FanControlCore
     func enqueue(_ body: [String: Any], connection: Connection, device: Device) throws {
         guard let id = body["operation_id"] as? String, let issued = body["issued_at_ms"] as? Int else { throw ControlError.invalidConfiguration }
         entries = entries.filter { Date().timeIntervalSince($0.value.issued) < 600 }
-        for old in entries.keys where entries[old]?.entity == device.entity && entries[old]?.connection.watch_id == connection.watch_id {
-            entries[old]?.accepted = true  // Superseded locally; never recover the old intent.
-        }
+        entries = entries.filter { $0.value.entity != device.entity || $0.value.connection.watch_id != connection.watch_id }
+        // Retain only the latest intent for each target; never recover superseded work.
         entries[id] = Entry(id: id, connection: connection, entity: device.entity, body: try JSONSerialization.data(withJSONObject: body), issued: Date(timeIntervalSince1970: Double(issued) / 1000))
         try save()
         try? upload(id, remote: false)
@@ -49,6 +48,10 @@ import FanControlCore
         task.taskDescription = [id, packet.aad, remote ? "remote" : "local", file.path].joined(separator: "|")
         if delay > 0 { task.earliestBeginDate = Date().addingTimeInterval(delay) }
         task.resume()
+    }
+    func clear() {
+        entries.removeAll(); SecureCommandStorage.clear()
+        session.getAllTasks { tasks in for task in tasks { task.cancel() } }
     }
     func recover() {
         _ = session
@@ -94,9 +97,10 @@ import FanControlCore
     nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         Task { @MainActor in
             let parts = (task.taskDescription ?? "").components(separatedBy: "|")
-            guard parts.count == 4, let entry = self.entries[parts[0]] else { return }
+            guard parts.count == 4 else { return }
             let data = self.buffers.removeValue(forKey: task.taskIdentifier) ?? Data()
             try? FileManager.default.removeItem(atPath: parts[3])
+            guard let entry = self.entries[parts[0]] else { return }
             let code = (task.response as? HTTPURLResponse)?.statusCode ?? 0
             if error == nil, (200..<300).contains(code), let result = try? CommandEnvelope.response(data, connection: entry.connection, aad: parts[1]) {
                 self.outcome(entry.id, state: result)

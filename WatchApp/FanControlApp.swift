@@ -20,11 +20,9 @@ import FanControlCore
     @Published var speedDraft: Int?
     @Published var musicEvidence = ""
     @Published private var actionReceipts = ActionReceipts()
-    private var client: Integration?
     private var work: Task<Void, Never>?
     private var command: Task<Void, Never>?
     private var vehicleIntent: (client: Integration, id: String, alert: String?)?
-    private var draft: Task<Void, Never>?
     private var generation = UUID()
     private var visible = false
     private let defaultTile = DefaultWatchTile()
@@ -87,7 +85,6 @@ import FanControlCore
         }
         #endif
         guard let connection else { return }
-        client = Integration(connection)
         if let d = device { resumeCommand(connection, d) }
         let ticket = generation
         work = Task {
@@ -261,8 +258,8 @@ import FanControlCore
         if changed { enter(resetSelection: true, allowEntryWake: false) }
         else if let d = device { observed = ObservationCache.shared.load(saved, d); stateFresh = false }
     }
-    func paired(_ value: Connection) { connection = value; WatchCompanion.shared.provision(); enter() }
-    func forget() { defaultTile.clear(); leave(); showingSettings = false; ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); PushDiagnostics.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
+    func paired(_ value: Connection) { if connection?.watch_id != value.watch_id || connection?.token != value.token { CommandDelivery.shared.clear() }; connection = value; WatchCompanion.shared.provision(); enter() }
+    func forget() { CommandDelivery.shared.clear(); defaultTile.clear(); leave(); showingSettings = false; ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); PushDiagnostics.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
 }
 
 
