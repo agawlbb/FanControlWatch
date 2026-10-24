@@ -66,9 +66,12 @@ import FanControlCore
     }
     func outcome(_ id: String, state: [String: Any]) {
         guard var entry = entries[id], state["operation_id"] as? String == id else { return }
-        if let data = entry.result, let previous = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           ["complete", "accepted", "failed", "cancelled", "unconfirmed"].contains(previous["operation_status"] as? String ?? "") { return }
         let status = state["operation_status"] as? String ?? "unknown"
+        if let data = entry.result, let previous = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let old = previous["operation_status"] as? String ?? ""
+            if ["complete", "accepted"].contains(old) { return }
+            if ["failed", "cancelled", "unconfirmed"].contains(old), !["complete", "accepted"].contains(status) { return }
+        }
         guard status != "unknown" else { return }
         entry.accepted = true
         entry.result = try? JSONSerialization.data(withJSONObject: state)
@@ -76,6 +79,7 @@ import FanControlCore
         try? save()
     }
     func rejected(_ id: String) {
+        guard entries[id]?.accepted == false else { return }
         outcome(id, state: ["operation_id": id, "operation_status": "failed", "reason": "Request rejected"])
         session.getAllTasks { tasks in
             for task in tasks where task.taskDescription?.components(separatedBy: "|").first == id { task.cancel() }
