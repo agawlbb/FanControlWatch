@@ -6,6 +6,7 @@ import subprocess
 import time
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 def request(path, body=None):
     def b64(value):
@@ -60,6 +61,7 @@ while time.monotonic() < deadline:
             detail = request('builds/' + build['id'] + '/buildBetaDetail')['data']['attributes']
             result = {'build_id': build['id'], 'internal_groups': [chosen[0]['attributes']['name']], 'build': build['attributes']['version'], 'processingState': state, 'expired': build['attributes']['expired'], 'usesNonExemptEncryption': build['attributes'].get('usesNonExemptEncryption'), 'beta': detail, 'marketingVersions': [item['attributes']['version'] for item in builds.get('included', []) if item['type'] == 'preReleaseVersions']}
             print(json.dumps(result), flush=True)
+            Path('build').mkdir(exist_ok=True)
             with open('build/testflight-processing.json', 'w') as output:
                 json.dump(result, output, indent=2)
             break
