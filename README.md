@@ -55,3 +55,13 @@ for documentation maintenance.
 Historical release tags and Git history retain earlier release source; old setup
 instructions are superseded by this companion workflow. Licensed AGPL-3.0-only;
 see LICENSE and NOTICE.md. Never commit keys, certificates, pairing secrets or audio.
+# Vehicle commands — 0.7.0 (16)
+
+Requires HA integration 0.8.0. Vehicle taps keep immediate gray requested feedback
+while HA coordinates one wake attempt, readiness and bounded delivery. The operation
+allows three minutes plus a 15-second final confirmation check. Expected wake delays
+do not trigger a one-minute Exercise alert; absent evidence is **not confirmed**.
+Ordinary commands cancel on leaving; accepted Exercise Stop continues within its
+deadline. Music/garage requests remain independent of car readiness. Phone snapshots
+and background refresh never wake vehicles. Existing pairings are preserved.
+

@@ -5,7 +5,7 @@
 The canonical repositories are `C:/Users/mailb/StudioProjects/FanControl/apple-watch`
 (agawlbb/FanControlWatch) and `C:/Users/mailb/StudioProjects/FanControl/ha-integration`
 (agawlbb/FanControlHA). Work only in the repository assigned to the task.
-The connected laptop owner is the chat "Explore push wakeups for Apple Watch";
+The connected laptop owner is the chat "FanControl owner" (01a15b0b-d82d-7dd2-b5ce-4e3f9bf236b8);
 coordinate handoff before another chat writes. Verify current heads and local
 changes before editing; preserve unexpected work. Labelled recovery copies remain
 archives and must not become active checkouts.
@@ -33,7 +33,7 @@ swiping never changes HA selection. Settings is reached by holding a watch page,
 not by swiping. Keep the phone UI minimal. Only Driving has an identification stripe.
 Visible primary vehicle entry wakes after target validation without artificial
 delay; swipe entry waits 1.5 seconds continuously visible. Leaving cancels entry
-work. No cooldown; prefetch/configuration/command retries must never wake vehicles.
+work. Explicit vehicle taps may start or join one bounded wake attempt. Prefetch/configuration/background reads and command retries never initiate additional wake requests. Apple commands allow 180 seconds plus 15 seconds of read-only confirmation; expected wake/retry delays remain silent.
 
 ## Command evidence
 

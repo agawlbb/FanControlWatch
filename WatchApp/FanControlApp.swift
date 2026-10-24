@@ -23,6 +23,7 @@ import FanControlCore
     private var client: Integration?
     private var work: Task<Void, Never>?
     private var command: Task<Void, Never>?
+    private var vehicleIntent: (client: Integration, id: String, alert: String?)?
     private var draft: Task<Void, Never>?
     private var generation = UUID()
     private var visible = false
@@ -103,7 +104,12 @@ import FanControlCore
                 guard ticket == generation, visible, !Task.isCancelled,
                       live.devices.contains(d), live.sameTarget(as: connection),
                       WKExtension.shared().applicationState == .active else { return }
-                _ = try? await Integration(live).request(panelBody(p, command: "wake"))
+                guard raw["vehicle_operations_version"] as? Int == 1 else { return }
+                var body = panelBody(p, command: "wake")
+                body["action"] = "vehicle_submit"
+                body["operation_id"] = UUID().uuidString.lowercased()
+                body["issued_at_ms"] = Int(Date().timeIntervalSince1970 * 1000)
+                _ = try? await Integration(live).request(body)
             } catch { /* A stale entry never wakes another target. */ }
         }
     }
@@ -167,6 +173,10 @@ import FanControlCore
             ExercisePlayer.shared.start(c, target: d)
         }
         if action == "stop_exercise" { ExercisePlayer.shared.stop() }
+        if let p = d.panel, p.vehicle {
+            sendVehicle(action, connection: c, device: d, panel: p, client: client, feedback: f)
+            return
+        }
         let exerciseAlert = ["start_exercise", "stop_exercise"].contains(action) ? ExerciseAlerts.shared.begin(target: c.watch_id + "|" + d.entity, action: action) : nil
         command = Task {
             let deadline = Date().addingTimeInterval(60)
@@ -268,7 +278,92 @@ import FanControlCore
 
         }
     }
+    private func sendVehicle(_ action: String, connection c: Connection, device d: Device, panel p: Panel, client: Integration, feedback f: Feedback) {
+        let ticket = generation
+        let identity = UUID().uuidString.lowercased()
+        let issued = Int(Date().timeIntervalSince1970 * 1000)
+        let deadline = Date(timeIntervalSince1970: Double(issued) / 1000 + VehicleOperation.alertSeconds)
+        let alert = ["start_exercise", "stop_exercise"].contains(action)
+            ? ExerciseAlerts.shared.begin(target: c.watch_id + "|" + d.entity, action: action, operationID: identity, connection: c) : nil
+        vehicleIntent = (client, identity, alert)
+        command = Task {
+            var terminal = false
+            defer {
+                if action != "stop_exercise" && !terminal && Task.isCancelled {
+                    let body: [String: Any] = ["action": "vehicle_cancel", "operation_id": identity]
+                    Task { _ = try? await client.request(body) }
+                    if let alert { ExerciseAlerts.shared.confirm(alert) }
+                }
+                if vehicleIntent?.id == identity { vehicleIntent = nil }
+                if ticket == generation && feedback?.id == f.id && feedback?.phase == .pending {
+                    feedback?.phase = .unconfirmed; message = "Not confirmed"
+                    if ActionReceipts.applies(action) { actionReceipts.finish(f, accepted: false) }
+                }
+            }
+            do {
+                let config = try await client.request(["action": "config", "platform": "watch_os"])
+                var full = config; full["token"] = c.token; full["watch_id"] = c.watch_id
+                let live = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: full)).validated()
+                guard live.sameTarget(as: c), live.devices.contains(d), config["vehicle_operations_version"] as? Int == 1 else {
+                    if let alert { ExerciseAlerts.shared.rejected(alert) }
+                    throw ControlError.invalidConfiguration
+                }
+                var body = panelBody(p, command: action)
+                body["action"] = "vehicle_submit"; body["operation_id"] = identity; body["issued_at_ms"] = issued
+                var submitted = false
+                while Date() < deadline {
+                    try Task.checkCancellation()
+                    guard ticket == generation, visible, feedback?.id == f.id else { throw CancellationError() }
+                    do {
+                        let state = try await client.request(submitted ? ["action": "vehicle_status", "operation_id": identity] : body)
+                        guard state["operation_id"] as? String == identity else { throw ControlError.invalidResponse }
+                        let status = state["operation_status"] as? String ?? "unknown"
+                        submitted = true
+                        if status == "unknown" { submitted = false }
+                        if let alert { ExerciseAlerts.shared.outcome(alert, state: state) }
+                        guard ticket == generation, feedback?.id == f.id, !Task.isCancelled else { return }
+                        if status == "complete" || status == "accepted" {
+                            terminal = true
+                            if ActionReceipts.applies(action) {
+                                actionReceipts.finish(f, accepted: true)
+                                feedback?.phase = .accepted; message = "Request accepted"
+                            } else {
+                                guard status == "complete", Evidence.matches(action, state, panel: p) else { throw ControlError.notConfirmed }
+                                observed = state; stateFresh = true
+                                ObservationCache.shared.save(state, connection: c, device: d)
+                                feedback?.phase = .confirmed; message = ""
+                            }
+                            return
+                        }
+                        if ["cancelled", "failed", "unconfirmed"].contains(status) {
+                            terminal = true; feedback?.phase = .unconfirmed
+                            message = status == "failed" ? "Request failed" : "Not confirmed"
+                            if ActionReceipts.applies(action) { actionReceipts.finish(f, accepted: false) }
+                            return
+                        }
+                        message = VehicleOperation.progress(state["stage"] as? String ?? "")
+                    } catch {
+                        try Task.checkCancellation()
+                        if case ControlError.rejected = error {
+                            terminal = true
+                            if let alert { ExerciseAlerts.shared.rejected(alert) }
+                            message = "Request rejected"; feedback?.phase = .unconfirmed
+                            if ActionReceipts.applies(action) { actionReceipts.finish(f, accepted: false) }
+                            return
+                        }
+                        // Lost responses are ambiguous. The same operation ID is safe to resubmit.
+                    }
+                    try await Task.sleep(nanoseconds: 1_500_000_000)
+                }
+            } catch { }
+        }
+    }
     func cancel() {
+        if let intent = vehicleIntent {
+            let body: [String: Any] = ["action": "vehicle_cancel", "operation_id": intent.id]
+            Task { _ = try? await intent.client.request(body) }
+            if let alert = intent.alert { ExerciseAlerts.shared.confirm(alert) }
+        }
         draft?.cancel(); speedDraft = nil; command?.cancel()
         if busy { feedback?.phase = .unconfirmed; message = "Not confirmed" }
     }

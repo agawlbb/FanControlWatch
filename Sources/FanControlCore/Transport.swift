@@ -37,7 +37,7 @@ public actor Integration {
         catch {
             try Task.checkCancellation()
             if case ControlError.rejected = error { throw error }
-            guard !["command", "panel_command"].contains(body["action"] as? String ?? ""), let remote = connection.remote_url, !remote.isEmpty, remote != connection.url else { throw error }
+            guard !["command", "panel_command", "vehicle_submit"].contains(body["action"] as? String ?? ""), let remote = connection.remote_url, !remote.isEmpty, remote != connection.url else { throw error }
             let fallback = endpoint == remote ? connection.url : remote
             let result = try await exchange(body, fallback); endpoint = fallback; return result
         }
