@@ -52,12 +52,13 @@ while time.monotonic() < deadline:
             named = [group for group in internal if group['attributes']['name'].lower() == 'internal testing']
             chosen = named if len(named) == 1 else internal
             assert len(chosen) == 1, 'Existing internal testing group missing or ambiguous'
-            assigned = request('builds/' + build['id'] + '/betaGroups')['data']
-            if not any(group['id'] == chosen[0]['id'] for group in assigned):
-                request('betaGroups/' + chosen[0]['id'] + '/relationships/builds', {'data':[{'type':'builds','id':build['id']}]})
-                assigned = request('builds/' + build['id'] + '/betaGroups')['data']
-            assert any(group['id'] == chosen[0]['id'] for group in assigned), 'Internal group assignment not confirmed'
-            result = {'build_id': build['id'], 'internal_groups': [group['attributes']['name'] for group in assigned], 'build': build['attributes']['version'], 'processingState': state, 'expired': build['attributes']['expired'], 'usesNonExemptEncryption': build['attributes'].get('usesNonExemptEncryption'), 'beta': detail, 'marketingVersions': [item['attributes']['version'] for item in builds.get('included', []) if item['type'] == 'preReleaseVersions']}
+            assigned = request('betaGroups/' + chosen[0]['id'] + '/builds?limit=200')['data']
+            if not any(item['id'] == build['id'] for item in assigned):
+                request('builds/' + build['id'] + '/relationships/betaGroups', {'data':[{'type':'betaGroups','id':chosen[0]['id']}]})
+                assigned = request('betaGroups/' + chosen[0]['id'] + '/builds?limit=200')['data']
+            assert any(item['id'] == build['id'] for item in assigned), 'Internal group assignment not confirmed'
+            detail = request('builds/' + build['id'] + '/buildBetaDetail')['data']['attributes']
+            result = {'build_id': build['id'], 'internal_groups': [chosen[0]['attributes']['name']], 'build': build['attributes']['version'], 'processingState': state, 'expired': build['attributes']['expired'], 'usesNonExemptEncryption': build['attributes'].get('usesNonExemptEncryption'), 'beta': detail, 'marketingVersions': [item['attributes']['version'] for item in builds.get('included', []) if item['type'] == 'preReleaseVersions']}
             print(json.dumps(result), flush=True)
             with open('build/testflight-processing.json', 'w') as output:
                 json.dump(result, output, indent=2)
