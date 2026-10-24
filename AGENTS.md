@@ -20,6 +20,54 @@ without specific approval. Back up before deletion/history rewrite, exclude igno
 credentials/runtime/signing material, preserve release tags, and use exact-SHA
 force-with-lease for authorized rewrites. Never purge recovery archives.
 
+## Required design for future controls
+
+Apply these rules to every new or changed HA-controlled action on every watch
+surface, including panels, shortcuts and complications. First-tap completion is
+the design goal for a valid, authorized target: recover ordinary wake, transport
+and provider delays without requiring another tap. Do not add a separate delivery
+path for a new control. Use the shared command outbox and HA operation API described
+in [COMMAND-DELIVERY.md](COMMAND-DELIVERY.md), with the corresponding server contract
+in the HA repository's `COMMAND-OPERATIONS.md`.
+
+- Capture one absolute intent, approved target, unique operation ID and original
+  deadline at the tap. Save it securely and schedule background submission before
+  monitoring. Retries, endpoint fallback and reopening must use that same intent
+  and ID; never recompute a toggle from a later read. No preflight read may gate
+  submission. HA remains authoritative for authorization and role validation.
+- The watch owns delivery until HA durably acknowledges acceptance; HA then owns
+  readiness, bounded wake, execution, retry and confirmation. Screen navigation,
+  wrist-down and UI task cancellation must not cancel handoff or accepted work.
+  Reopening reconciles the saved operation. Only explicit cancellation, a newer
+  conflicting intent, revocation/target invalidation or expiry may stop it.
+- Keep queue acceptance, dispatch acknowledgment and confirmed outcome distinct.
+  Project the requested outcome immediately in gray; confirm only with matching
+  authenticated evidence for this operation and target. Never put projected state
+  in the observed cache. Scripts/scenes/horn/music receipts do not prove physical
+  completion or playback. Stale callbacks must not change a newer request.
+- Declare whether each new command is a retryable desired state or an at-most-once
+  action. Persist one-shot dispatch boundaries on HA; never blindly replay an
+  ambiguous action for better feedback. Keep conflicting controls disabled while
+  preserving supported opposite-intent supersession and fan-speed adjustment.
+- Keep expected wake/retry delays silent through the shared 180-second delivery
+  and 15-second read-only grace policy. Treat transient network errors, rate limits
+  and temporary server errors as retryable within that deadline. Final failures
+  stay gray and explain the available evidence; never claim an unproven success.
+- Local-only actions such as audio and volume remain watch-owned; their feedback
+  and evidence must remain independent of HA or vehicle completion. Keep background
+  command transfer separate from passive reads; do not add background polling or
+  passive vehicle wakes. Clear saved command credentials when forgetting pairing.
+
+Before delivering a new command, cover immediate feedback, early navigation and
+wrist-down, lost acceptance responses, same-ID retry/fallback, delayed/unavailable
+or mismatched evidence, terminal failure, explicit cancellation, supersession,
+stale callbacks, target/revocation changes and restart recovery. Verify the HA
+worker and any one-shot recovery behavior as well as the watch path. Add meaningful
+regression coverage and record paired-device checks that automation cannot prove.
+Do not promise guaranteed OS scheduling or exactly-once physical effects when the
+target supplies no deduplication/definitive acknowledgment. Coordinate required HA
+capabilities and version compatibility before introducing a dependent app action.
+
 ## Current behavior
 
 The iPhone owns routine APNs/background refresh and visible-phone polling. The
@@ -51,10 +99,12 @@ Garage/trunk initial CLOSED is only a gray assumption; its first tap is absolute
 OPEN. Dispatch cover/script/scene/music requests at most once per tap.
 
 Leave for Work, Horn, Start/Stop Exercise and Podcast show gray Activated after
-a tap and teal Activated only after authenticated HA acceptance; that is receipt,
-not physical completion or playback proof. Retain receipts for the active session
-and reset on leaving/configuration change. Generic script/scene controls preserve
-their existing receipt semantics. Pending conflicting actions remain disabled.
+a tap. Teal requires the action's authenticated dispatch receipt or required HA
+operation completion; queue acceptance alone is insufficient. A dispatch receipt
+does not prove physical completion or playback. Resetting session presentation on
+leaving/configuration change must not delete saved operations or prevent
+reconciliation on return. Generic script/scene controls preserve their existing
+receipt semantics. Pending conflicting actions remain disabled.
 Stop continuation must survive accepted dispatch; Driving selection requires HA
 operation completion. Local Exercise Stop confirms unlock and climate on; the
 63 F temperature request is best effort. Preserve existing legacy-client semantics.
