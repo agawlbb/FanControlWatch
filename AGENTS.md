@@ -28,7 +28,7 @@ not add watch background polling or a foreground refresh loop. Phone/background
 reads never wake vehicles. Direct watch commands and their bounded validation
 and confirmation remain independent of the phone.
 
-HA selects the opening panel. Saved phone preferences define a fixed swipe order;
+A swiped tile persists as the local opening tile until another swipe or an HA selection/configuration revision. Saved phone preferences define a fixed swipe order;
 swiping never changes HA selection. Settings is reached by holding a watch page,
 not by swiping. Keep the phone UI minimal. Only Driving has an identification stripe.
 Visible primary vehicle entry wakes after target validation without artificial

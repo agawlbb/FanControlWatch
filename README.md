@@ -23,7 +23,7 @@ available. Cached states stay gray and tappable; snapshots cannot confirm a
 watch command. iOS background execution/delivery remains opportunistic.
 
 The Settings swipe page is removed; hold a watch page for setup/recovery. HA
-selects the opening panel; phone ordering controls swipe order without changing
+selects the opening panel until a swipe saves a local default. That default survives reopening until another swipe or an HA selection/configuration revision; phone ordering controls swipe order without changing
 selection. Phone diagnostics show cache time and watch acknowledgment; HA
 retains correlated push attempts, phone receipt/save and watch-save events.
 

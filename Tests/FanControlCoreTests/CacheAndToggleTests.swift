@@ -2,6 +2,37 @@ import XCTest
 @testable import FanControlCore
 
 final class CacheAndToggleTests: XCTestCase {
+    func testSwipedDefaultSurvivesRecreationUntilHAChanges() throws {
+        let suite = "tile-test-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var c = try connection()
+        let other = try JSONDecoder().decode(Device.self, from: Data("{\"entity\":\"fan.other\",\"title\":\"Other\"}".utf8))
+        c.devices.append(other)
+        let tile = DefaultWatchTile(defaults: defaults)
+        tile.save(other.entity, connection: c)
+        XCTAssertEqual(DefaultWatchTile(defaults: defaults).load(c), other.entity)
+        c.companion_settings = CompanionSettings(order: [other.entity])
+        XCTAssertEqual(tile.load(c), other.entity)
+        tile.save(c.entity, connection: c)
+        XCTAssertEqual(tile.load(c), c.entity)
+        tile.save(other.entity, connection: c)
+        var changed = c; changed.revision = 2
+        XCTAssertNil(tile.load(changed))
+        XCTAssertNil(tile.load(c)) // An old preference cannot return after HA changes back.
+        tile.save(other.entity, connection: c)
+        changed = c; changed.entity = other.entity
+        XCTAssertNil(tile.load(changed))
+        tile.save(other.entity, connection: c)
+        changed = c; changed.devices.removeLast()
+        XCTAssertNil(tile.load(changed))
+        tile.save(other.entity, connection: c)
+        changed = c; changed.watch_id = String(repeating: "c", count: 32)
+        XCTAssertNil(tile.load(changed))
+        tile.save(other.entity, connection: c)
+        tile.clear()
+        XCTAssertNil(tile.load(c))
+    }
     private func connection() throws -> Connection {
         let json = """
         {"url":"https://ha.example","token":"\(String(repeating: "a", count: 64))","watch_id":"\(String(repeating: "b", count: 32))","entity":"panel.fan","devices":[{"entity":"panel.fan","title":"Fan","panel":{"id":"fan","name":"Fan","type":"fan","fan_entity":"fan.bedroom"}}]}

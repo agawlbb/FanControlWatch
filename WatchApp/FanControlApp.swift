@@ -27,6 +27,7 @@ import FanControlCore
     private var draft: Task<Void, Never>?
     private var generation = UUID()
     private var visible = false
+    private let defaultTile = DefaultWatchTile()
     private var wakeAfter: ContinuousClock.Instant?
     @Published private var sessionTarget: String?
     @Published private(set) var showingSettings = false
@@ -52,7 +53,7 @@ import FanControlCore
         // A refresh launch can instantiate the view without user-visible entry.
         guard WKExtension.shared().applicationState == .active else { return }
         leave(resetReceipts: resetSelection); visible = true
-        if resetSelection { WatchCompanion.shared.beginEntry(); connection = Vault.load(); sessionTarget = nil; showingSettings = false; feedback = nil; wakeAfter = nil }
+        if resetSelection { WatchCompanion.shared.beginEntry(); connection = Vault.load(); sessionTarget = connection.flatMap { defaultTile.load($0) }; showingSettings = false; feedback = nil; wakeAfter = nil }
         // Migrate older unlocked-only keychain entries before the next wrist-down push.
         if let connection { try? Vault.save(connection) }
         if let connection, resetSelection {
@@ -120,7 +121,9 @@ import FanControlCore
         leave(resetReceipts: false); observed = [:]; feedback = nil
         switch next {
         case .settings: showingSettings = true
-        case .device(let entity): showingSettings = false; sessionTarget = entity
+        case .device(let entity):
+            showingSettings = false; sessionTarget = entity
+            defaultTile.save(entity, connection: c)
         }
         wakeAfter = .now.advanced(by: .milliseconds(1500))
         enter(resetSelection: false)
@@ -369,16 +372,18 @@ import FanControlCore
     }
     func receiveCompanion() {
         guard let saved = Vault.load() else { return }
+        // Invalidate older navigation even when a command defers visible selection.
+        _ = defaultTile.load(saved)
         // Persisted snapshots can arrive during a command. Never clear or
         // recolor that intent; apply selection on its next safe entry.
         guard feedback == nil, speedDraft == nil else { return }
-        let changed = connection.map { !$0.sameTarget(as: saved) } ?? true
+        let changed = connection.map { !$0.sameTarget(as: saved) || $0.revision != saved.revision } ?? true
         connection = saved
         if changed { enter(resetSelection: true, allowEntryWake: false) }
         else if let d = device { observed = ObservationCache.shared.load(saved, d); stateFresh = false }
     }
     func paired(_ value: Connection) { connection = value; WatchCompanion.shared.provision(); enter() }
-    func forget() { leave(); showingSettings = false; ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); PushDiagnostics.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
+    func forget() { defaultTile.clear(); leave(); showingSettings = false; ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); PushDiagnostics.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
 }
 
 
