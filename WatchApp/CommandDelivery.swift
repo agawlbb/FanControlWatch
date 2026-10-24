@@ -94,12 +94,12 @@ import FanControlCore
     }
     nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
     nonisolated func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        Task { @MainActor in
+        MainActor.assumeIsolated {
             if (self.buffers[dataTask.taskIdentifier]?.count ?? 0) + data.count <= 262144 { self.buffers[dataTask.taskIdentifier, default: Data()].append(data) }
         }
     }
     nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        Task { @MainActor in
+        MainActor.assumeIsolated {
             let parts = (task.taskDescription ?? "").components(separatedBy: "|")
             guard parts.count == 4 else { return }
             let data = self.buffers.removeValue(forKey: task.taskIdentifier) ?? Data()
@@ -119,7 +119,7 @@ import FanControlCore
         }
     }
     nonisolated func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
-        Task { @MainActor in
+        MainActor.assumeIsolated {
             let tasks = self.backgroundTasks; self.backgroundTasks.removeAll()
             for task in tasks { task.setTaskCompletedWithSnapshot(false) }
         }
