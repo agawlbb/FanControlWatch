@@ -26,7 +26,8 @@ def request(path, body=None):
     token = header + '.' + payload + '.' + b64(b''.join(parts))
     req = urllib.request.Request('https://api.appstoreconnect.apple.com/v1/' + path, data=json.dumps(body).encode() if body else None, headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'})
     with urllib.request.urlopen(req, timeout=30) as response:
-        return json.load(response)
+        content = response.read()
+        return json.loads(content) if content else {}
 
 apps = request('apps?' + urllib.parse.urlencode({'filter[bundleId]': 'dev.fancontrol.watch'}))['data']
 assert len(apps) == 1, 'FanControl App Store Connect app missing or ambiguous'
@@ -51,8 +52,10 @@ while time.monotonic() < deadline:
             named = [group for group in internal if group['attributes']['name'].lower() == 'internal testing']
             chosen = named if len(named) == 1 else internal
             assert len(chosen) == 1, 'Existing internal testing group missing or ambiguous'
-            request('betaGroups/' + chosen[0]['id'] + '/relationships/builds', {'data':[{'type':'builds','id':build['id']}]})
             assigned = request('builds/' + build['id'] + '/betaGroups')['data']
+            if not any(group['id'] == chosen[0]['id'] for group in assigned):
+                request('betaGroups/' + chosen[0]['id'] + '/relationships/builds', {'data':[{'type':'builds','id':build['id']}]})
+                assigned = request('builds/' + build['id'] + '/betaGroups')['data']
             assert any(group['id'] == chosen[0]['id'] for group in assigned), 'Internal group assignment not confirmed'
             result = {'build_id': build['id'], 'internal_groups': [group['attributes']['name'] for group in assigned], 'build': build['attributes']['version'], 'processingState': state, 'expired': build['attributes']['expired'], 'usesNonExemptEncryption': build['attributes'].get('usesNonExemptEncryption'), 'beta': detail, 'marketingVersions': [item['attributes']['version'] for item in builds.get('included', []) if item['type'] == 'preReleaseVersions']}
             print(json.dumps(result), flush=True)
