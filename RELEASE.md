@@ -1,3 +1,57 @@
+# Vehicle reliability release — 0.7.0 (16), October 24, 2026
+
+Uploaded and available to the existing **Internal** TestFlight group. Apple build
+`4fa19c25-a9b5-4250-8654-03edac7b5f80` is `VALID`, not expired, and
+`IN_BETA_TESTING`, with no non-exempt encryption. No external testing group,
+new tester, beta review submission or App Store release was created.
+
+Signed application source: `e9e1e54da2288bc0736865d6093340d5b9756152`.
+Later changes affect release verification/documentation only; application sources
+and project settings are identical. Phone, watch and complication all report
+0.7.0 (16). Paired hardware behavior has not been tested.
+
+## Changes
+
+- Explicit vehicle taps coordinate one wake/readiness attempt through HA 0.8.0.
+  Operations preserve absolute intent, deduplicate submissions, avoid holding
+  the shared HA lock during slow services, and never blindly replay one-shots.
+- Delivery lasts up to 180 seconds plus 15 seconds of read-only confirmation.
+  Normal wake/retry delays remain silent; missing evidence is not confirmed.
+  Definitive rejection can report failure immediately.
+- Exercise selection follows the person's morning arrival at either exercise
+  location without waiting for car GPS. HA 0.8.0 is deployed and loaded;
+  both existing pairings were preserved. Stop still selects a uniquely matching
+  Driving panel once after the required outcomes are observed.
+
+## Validation and evidence
+
+38 Swift tests passed. iPhone/watch simulator builds, 13 synthetic captures and
+unsigned archive passed; captures were visually reviewed. Signed archive/export,
+deep signature, APNs entitlements, bundle versions and upload checks passed.
+223 HA regression scenarios, Python compilation, package generation and real HA
+runtime checks passed. Installed HA 2026.10.3 loaded the deployed integration.
+
+- Simulator/core validation: https://github.com/agawlbb/FanControlWatch/actions/runs/40097060261
+- Signed archive/upload: https://github.com/agawlbb/coffey-table-recipes/actions/runs/40097426044
+- Final processing/internal access: https://github.com/agawlbb/coffey-table-recipes/actions/runs/40098120807
+- HA final-source CI: https://github.com/agawlbb/FanControlHA/actions/runs/40097430298
+
+The signing run's post-upload metadata verifier failed; the corrected standalone
+verification above confirmed the same uploaded binary without rebuilding/reuploading.
+The verifier has an isolated mocked Apple-response test. Private credentials stayed
+in the existing runner and were removed at job cleanup.
+
+IPA SHA256: `169353e4df9b7b7aa6613ace37d673936a66ffc0639173279eb81020c14b3e46`.
+Local signed package, simulator captures and processing JSON: `build/vehicle070/`.
+HA deployment and rollback details: the integration repository's `DEPLOYMENT-0.8.0.md`.
+
+Remaining physical checks: asleep-car first tap, immediate gray feedback, delayed
+confirmation, opposite intent/cancellation, offline phone, screen-off Stop,
+actual morning arrival and notification suppression during normal delays.
+Automated tests do not prove physical vehicle outcomes or paired-watch behavior.
+
+---
+
 # iPhone companion and Apple Watch — 0.6.0 (15)
 
 Source: `3adaed3e3ad538ddd9fd097920cbab2ac6afdc65`.
