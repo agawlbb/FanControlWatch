@@ -7,15 +7,7 @@ import FanControlCore
 @MainActor final class CommandDelivery: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate {
     static let shared = CommandDelivery()
     static let sessionID = "dev.fancontrol.watch.command-delivery"
-    struct Entry: Codable {
-        let id: String
-        let connection: Connection
-        let entity: String
-        let body: Data
-        let issued: Date
-        var accepted = false
-        var result: Data?
-    }
+    typealias Entry = CommandRecord
     private var entries: [String: Entry] = [:]
     private var buffers: [Int: Data] = [:]
     private var backgroundTasks: [WKURLSessionRefreshBackgroundTask] = []

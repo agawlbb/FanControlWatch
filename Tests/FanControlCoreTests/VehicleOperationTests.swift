@@ -12,6 +12,6 @@ final class VehicleOperationTests: XCTestCase {
             XCTAssertTrue(VehicleOperation.terminal(status))
         }
         XCTAssertEqual(VehicleOperation.progress("wake"), "Waking car")
-        XCTAssertEqual(VehicleOperation.progress("final_check"), "Checking car")
+        XCTAssertEqual(VehicleOperation.progress("final_check"), "Checking outcome")
     }
 }
