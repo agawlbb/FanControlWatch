@@ -57,3 +57,8 @@ force-quit/background scheduling. Simulator compilation does not prove these eff
 HA 0.9.0 is now deployed and watch 0.8.0/build 17 is signed and published to the
 existing Internal TestFlight group. See [RELEASE.md](RELEASE.md) for the Apple build
 ID, successful release run, package hash and remaining paired-device checks.
+
+Action buttons initially show their normal name in teal, turn gray Activated on tap,
+and turn teal Activated when a matching authenticated operation response confirms
+HA ownership. This acknowledges responsibility for completion, not physical completion
+or playback. Monitoring and conflicting-command protection continue independently.

@@ -193,6 +193,11 @@ import FanControlCore
                     submitted = status != "unknown"
                     CommandDelivery.shared.outcome(identity, state: state)
                     guard !Task.isCancelled, visible, ticket == generation, feedback?.id == f.id else { return }
+                    if ActionReceipts.applies(f.command), ActionReceipts.acknowledgesHandoff(state) {
+                        // Teal Activated means HA owns completion, even while it is working.
+                        // Keep the operation pending so existing conflict rules still apply.
+                        actionReceipts.finish(f, accepted: true)
+                    }
                     if status == "complete" || status == "accepted" {
                         speedDraft = nil
                         if ActionReceipts.applies(f.command) {
@@ -223,6 +228,7 @@ import FanControlCore
             }
             guard ticket == generation, feedback?.id == f.id else { return }
             speedDraft = nil; feedback?.phase = .unconfirmed
+            if ActionReceipts.applies(f.command) { actionReceipts.finish(f, accepted: false) }
         }
     }
     private func resumeCommand(_ c: Connection, _ d: Device) {

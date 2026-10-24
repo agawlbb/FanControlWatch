@@ -11,6 +11,12 @@ public struct ActionReceipts {
     public static func applies(_ command: String) -> Bool {
         ["leave", "honk", "podcast", "start_exercise", "stop_exercise"].contains(command)
     }
+    // Authenticated operation responses acknowledge HA ownership, not completion.
+    // The caller must first match the captured operation ID and current target.
+    public static func acknowledgesHandoff(_ response: [String: Any]) -> Bool {
+        guard let status = response["operation_status"] as? String else { return false }
+        return ["pending", "waking", "waiting", "delivering", "confirming", "complete", "accepted"].contains(status)
+    }
     private func key(_ target: String, _ command: String) -> String { target + "|" + command }
     public func feedback(target: String, command: String) -> Feedback? { entries[key(target, command)] }
     public mutating func begin(_ feedback: Feedback) {

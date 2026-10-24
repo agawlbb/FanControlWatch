@@ -41,8 +41,7 @@ in the HA repository's `COMMAND-OPERATIONS.md`.
   Reopening reconciles the saved operation. Only explicit cancellation, a newer
   conflicting intent, revocation/target invalidation or expiry may stop it.
 - Keep queue acceptance, dispatch acknowledgment and confirmed outcome distinct.
-  Project the requested outcome immediately in gray; confirm only with matching
-  authenticated evidence for this operation and target. Never put projected state
+  Project the requested outcome immediately in gray; confirm state outcomes only with matching authenticated evidence for this operation and target. Action-button teal Activated instead acknowledges authenticated HA ownership. Never put projected state
   in the observed cache. Scripts/scenes/horn/music receipts do not prove physical
   completion or playback. Stale callbacks must not change a newer request.
 - Declare whether each new command is a retryable desired state or an at-most-once
@@ -104,9 +103,7 @@ confirmed. Action buttons intentionally change to Activated after a tap; retain 
 or speed in gray; only matching evidence promotes their color. Failures stay gray.
 Setup, pairing and audio-route guidance are separate from command feedback.
 
-Leave for Work, Horn, Start/Stop Exercise and Podcast show gray Activated after a tap. Teal requires the action's authenticated dispatch receipt or required HA
-operation completion; queue acceptance alone is insufficient. A dispatch receipt
-does not prove physical completion or playback. Resetting session presentation on
+Leave for Work, Horn, Start/Stop Exercise and Podcast show gray Activated after a tap. Teal Activated means an authenticated response matching this operation confirms HA has received the command and owns ensuring completion. Active operation statuses acknowledge that handoff before dispatch/completion. It does not prove physical completion or playback. Keep monitoring and conflict protection independent of the receipt color; terminal failures remain gray. Resetting session presentation on
 leaving/configuration change must not delete saved operations or prevent
 reconciliation on return. Generic script/scene controls preserve their existing
 receipt semantics. Pending conflicting actions remain disabled.

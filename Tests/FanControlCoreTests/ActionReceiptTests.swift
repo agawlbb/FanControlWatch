@@ -15,6 +15,16 @@ final class ActionReceiptTests: XCTestCase {
         receipts.clear()
         XCTAssertFalse(ActionReceipts.isGray(receipts.feedback(target: request.target, command: request.command)))
     }
+    func testHandoffAcknowledgesOwnershipBeforeDispatchOrCompletion() {
+        for status in ["pending", "waking", "waiting", "delivering", "confirming", "complete", "accepted"] {
+            XCTAssertTrue(ActionReceipts.acknowledgesHandoff(["operation_status": status]))
+        }
+        for status in ["unknown", "failed", "cancelled", "unconfirmed", "expired", ""] {
+            XCTAssertFalse(ActionReceipts.acknowledgesHandoff(["operation_status": status]))
+        }
+        XCTAssertFalse(ActionReceipts.acknowledgesHandoff([:]))
+        XCTAssertFalse(ActionReceipts.acknowledgesHandoff(["stage": "accepted"]))
+    }
     func testActionsExcludeFanSpeedAndToggles() {
         for command in ["leave", "honk", "podcast", "start_exercise", "stop_exercise"] {
             XCTAssertTrue(ActionReceipts.applies(command))
