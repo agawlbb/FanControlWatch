@@ -9,7 +9,7 @@ struct RequestedPresentation {
         case "turn_off": return "OFF"
         case "climate_on": return "Climate ON"
         case "climate_off": return "Climate OFF"
-        case "activate": return "REQUESTED"
+        case "activate": return original
         case "leave", "honk", "start_exercise", "stop_exercise": return original
         default:
             if command.hasSuffix("_open") { return original.components(separatedBy: "\n")[0] + "\nOPEN" }

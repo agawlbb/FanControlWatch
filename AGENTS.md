@@ -52,7 +52,7 @@ in the HA repository's `COMMAND-OPERATIONS.md`.
 - Keep expected wake/retry delays silent through the shared 180-second delivery
   and 15-second read-only grace policy. Treat transient network errors, rate limits
   and temporary server errors as retryable within that deadline. Final failures
-  stay gray and explain the available evidence; never claim an unproven success.
+  stay gray; never claim an unproven success.
 - Local-only actions such as audio and volume remain watch-owned; their feedback
   and evidence must remain independent of HA or vehicle completion. Keep background
   command transfer separate from passive reads; do not add background polling or
@@ -98,7 +98,14 @@ teal. Unknown, unavailable, mismatched, timed-out and ambiguous results stay gra
 Garage/trunk initial CLOSED is only a gray assumption; its first tap is absolute
 OPEN. Dispatch cover/script/scene/music requests at most once per tap.
 
-Leave for Work, Horn, Start/Stop Exercise and Podcast show gray Activated after
+Command feedback uses color on the existing control, without separate status
+messages such as Requested, Waiting for Home Assistant, Request accepted or Not
+confirmed. Preserve action names after a tap; do not replace them with REQUESTED
+or Activated. State controls immediately show the requested ON/OFF, OPEN/CLOSED
+or speed in gray; only matching evidence promotes their color. Failures stay gray.
+Setup, pairing and audio-route guidance are separate from command feedback.
+
+Leave for Work, Horn, Start/Stop Exercise and Podcast keep their labels after
 a tap. Teal requires the action's authenticated dispatch receipt or required HA
 operation completion; queue acceptance alone is insufficient. A dispatch receipt
 does not prove physical completion or playback. Resetting session presentation on
