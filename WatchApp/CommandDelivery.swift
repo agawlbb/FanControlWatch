@@ -32,9 +32,9 @@ import FanControlCore
         }
         entries[id] = Entry(id: id, connection: connection, entity: device.entity, body: try JSONSerialization.data(withJSONObject: body), issued: Date(timeIntervalSince1970: Double(issued) / 1000))
         try save()
-        try upload(id, remote: false)
+        try? upload(id, remote: false)
     }
-    private func upload(_ id: String, remote: Bool) throws {
+    private func upload(_ id: String, remote: Bool, delay: TimeInterval = 0) throws {
         guard let entry = entries[id], !entry.accepted, Date().timeIntervalSince(entry.issued) < 180,
               let current = Vault.load(), current.watch_id == entry.connection.watch_id, current.token == entry.connection.token,
               let body = try JSONSerialization.jsonObject(with: entry.body) as? [String: Any] else { return }
@@ -47,6 +47,7 @@ import FanControlCore
         try JSONSerialization.data(withJSONObject: packet.packet).write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         let task = session.uploadTask(with: request, fromFile: file)
         task.taskDescription = [id, packet.aad, remote ? "remote" : "local", file.path].joined(separator: "|")
+        if delay > 0 { task.earliestBeginDate = Date().addingTimeInterval(delay) }
         task.resume()
     }
     func recover() {
@@ -101,8 +102,11 @@ import FanControlCore
                 self.outcome(entry.id, state: result)
             } else if code >= 400 && code < 500 && code != 429 {
                 self.rejected(entry.id)
-            } else if parts[2] == "local", code == 0 || code == 429 || code >= 500 {
-                try? self.upload(entry.id, remote: true)
+            } else {
+                let count = (self.entries[entry.id]?.retries ?? 0) + 1
+                self.entries[entry.id]?.retries = count
+                try? self.save()
+                try? self.upload(entry.id, remote: true, delay: parts[2] == "local" ? 0 : min(15, Double(count * 2)))
             }
         }
     }

@@ -36,7 +36,7 @@ import FanControlCore
         return connection?.devices.first { $0.entity == (sessionTarget ?? connection?.entity) }
     }
     var busy: Bool { feedback?.phase == .pending }
-    var canAdjustSpeed: Bool { visible && device?.domain == "fan" && (!busy || feedback?.command == "turn_on") }
+    var canAdjustSpeed: Bool { visible && device?.domain == "fan" && (!busy || feedback?.command == "turn_on" || feedback?.command.hasPrefix("speed") == true) }
     var displayedSpeed: Int {
         if let speedDraft { return speedDraft }
         if let command = feedback?.command, command.hasPrefix("speed"), let value = Int(command.dropFirst(5)) { return value }

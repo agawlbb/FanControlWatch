@@ -142,8 +142,7 @@ struct ControlsView: View {
         let on = model.observed["climate_on"] as? Bool == true
         let pending = model.feedback?.phase != .confirmed && model.feedback?.command.hasPrefix("climate_") == true
         let action = pending ? ToggleIntent.opposite(model.feedback!.command)! : on ? "climate_off" : "climate_on"
-        let available = model.observed["climate_available"] as? Bool == true &&
-            (!on || p.type != "driving" || model.observed["climate_off_available"] as? Bool == true)
+        let available = model.observed[on && p.type == "driving" ? "climate_off_available" : "climate_available"] as? Bool == true
         return control(action, "\(p.climate_label ?? "Climate")\n\(on ? "ON" : "OFF")", known: available)
     }
     private func cover(_ role: String, _ title: String) -> some View {

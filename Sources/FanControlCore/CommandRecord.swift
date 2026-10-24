@@ -8,6 +8,7 @@ public struct CommandRecord: Codable {
     public let body: Data
     public let issued: Date
     public var accepted = false
+    public var retries: Int?
     public var result: Data?
     public init(id: String, connection: Connection, entity: String, body: Data, issued: Date) {
         self.id = id; self.connection = connection; self.entity = entity; self.body = body; self.issued = issued
