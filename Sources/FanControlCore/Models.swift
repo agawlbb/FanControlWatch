@@ -94,7 +94,7 @@ public enum Evidence {
         if let panel, panel.type != "fan" {
             if panel.vehicle && command != "stop_exercise" && command != "garage_open" && command != "garage_close" && state["vehicle_ready"] as? Bool != true { return false }
             switch command {
-            case "climate_on", "climate_off": return state["climate_available"] as? Bool == true && state["climate_on"] as? Bool == (command == "climate_on")
+            case "climate_on", "climate_off": return (state[command == "climate_off" && panel.type == "driving" ? "climate_off_available" : "climate_available"] as? Bool == true) && state["climate_on"] as? Bool == (command == "climate_on")
             case "garage_open", "garage_close", "trunk_open", "trunk_close":
                 let role = command.hasPrefix("garage") ? "garage" : "trunk"
                 return state[command + "_available"] as? Bool == true && state[role + "_state"] as? String == (command.hasSuffix("open") ? "open" : "closed")

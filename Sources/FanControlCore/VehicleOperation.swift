@@ -12,8 +12,8 @@ public enum VehicleOperation {
         switch stage {
         case "wake": return "Waking car"
         case "delivery": return "Sending request"
-        case "confirmation", "final_check": return "Checking car"
-        default: return "Waiting for car"
+        case "confirmation", "final_check": return "Checking outcome"
+        default: return "Waiting for Home Assistant"
         }
     }
 }

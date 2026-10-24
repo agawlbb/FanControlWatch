@@ -76,4 +76,30 @@ final class TransportTests: XCTestCase {
         do { _ = try await c.request(["action":"panel_command","panel_id":"driving","command":"trunk_open"]); XCTFail("Expected failure") } catch {}
         XCTAssertEqual(count,1)
     }
+    func testDurableSubmissionFallsBackWithSameOperationIDAndFreshNonce() async throws {
+        let c = try client(); var hosts = [String](); var nonces = [String]()
+        MockProtocol.handle = { request in
+            hosts.append(request.url!.host!)
+            let packet = try JSONSerialization.jsonObject(with: MockProtocol.body(request)) as! [String: Any]
+            nonces.append(packet["nonce"] as! String)
+            let aad = "fan-control-v1:\(packet["watch_id"]!):\(packet["timestamp"]!):\(packet["nonce"]!)"
+            let key = SymmetricKey(data: try Data(hex: String(repeating:"a",count:64)))
+            let plain = try open(packet, key:key, aad:aad)
+            let body = try JSONSerialization.jsonObject(with:plain) as! [String:Any]
+            XCTAssertEqual(body["operation_id"] as? String, "stable-id")
+            if hosts.count == 1 { return (503, Data()) }
+            let box = try AES.GCM.seal(JSONSerialization.data(withJSONObject:["operation_id":"stable-id", "operation_status":"pending"]),using:key,authenticating:Data((aad + ":response").utf8))
+            return (200,try JSONSerialization.data(withJSONObject:["iv":Data(box.nonce).base64EncodedString(),"ciphertext":(box.ciphertext + box.tag).base64EncodedString()]))
+        }
+        let result = try await c.request(["action":"operation_submit", "operation_id":"stable-id", "entity":"fan.test", "command":"turn_on"])
+        XCTAssertEqual(result["operation_status"] as? String,"pending")
+        XCTAssertEqual(hosts,["local.example","remote.example"])
+        XCTAssertEqual(Set(nonces).count,2)
+    }
+    func testRateLimitedDurableSubmissionCanTryRemote() async throws {
+        let c = try client(); var hosts = [String]()
+        MockProtocol.handle = { request in hosts.append(request.url!.host!); return (429,Data()) }
+        do { _ = try await c.request(["action":"operation_submit", "operation_id":"stable-id"]); XCTFail("Expected retryable error") } catch {}
+        XCTAssertEqual(hosts,["local.example","remote.example"])
+    }
 }

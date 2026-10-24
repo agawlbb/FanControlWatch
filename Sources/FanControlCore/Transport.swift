@@ -36,13 +36,25 @@ public actor Integration {
         do { return try await exchange(body, endpoint) }
         catch {
             try Task.checkCancellation()
-            if case ControlError.rejected = error { throw error }
-            guard !["command", "panel_command", "vehicle_submit"].contains(body["action"] as? String ?? ""), let remote = connection.remote_url, !remote.isEmpty, remote != connection.url else { throw error }
+            if case ControlError.rejected(let status) = error, status != 429 && status < 500 { throw error }
+            guard !["command", "panel_command"].contains(body["action"] as? String ?? ""), let remote = connection.remote_url, !remote.isEmpty, remote != connection.url else { throw error }
             let fallback = endpoint == remote ? connection.url : remote
             let result = try await exchange(body, fallback); endpoint = fallback; return result
         }
     }
     private func exchange(_ body: [String: Any], _ address: String) async throws -> [String: Any] {
+        let prepared = try CommandEnvelope.prepare(body, connection: connection)
+        let packet = prepared.packet
+        let aad = prepared.aad
+        let key = SymmetricKey(data: try Data(hex: connection.token))
+        let result = try await http.post(address, path: "api/fan_control/watch/request", body: packet, maximumResponseBytes: body["action"] as? String == "exercise_music_chunk" ? 524288 : 262144)
+        let plain = try open(result, key: key, aad: aad + ":response")
+        guard let json = try JSONSerialization.jsonObject(with: plain) as? [String: Any] else { throw ControlError.invalidResponse }
+        return json
+    }
+}
+public enum CommandEnvelope {
+    public static func prepare(_ body: [String: Any], connection: Connection) throws -> (packet: [String: Any], aad: String) {
         let nonce = try random(16).hex
         let timestamp = Int(Date().timeIntervalSince1970)
         let aad = "fan-control-v1:\(connection.watch_id):\(timestamp):\(nonce)"
@@ -50,10 +62,29 @@ public actor Integration {
         let box = try AES.GCM.seal(JSONSerialization.data(withJSONObject: body), using: key, authenticating: Data(aad.utf8))
         var packet: [String: Any] = ["watch_id": connection.watch_id, "timestamp": timestamp, "nonce": nonce, "iv": Data(box.nonce).base64EncodedString(), "ciphertext": (box.ciphertext + box.tag).base64EncodedString()]
         if connection.companion == true { packet["credential"] = "companion" }
-        let result = try await http.post(address, path: "api/fan_control/watch/request", body: packet, maximumResponseBytes: body["action"] as? String == "exercise_music_chunk" ? 524288 : 262144)
-        let plain = try open(result, key: key, aad: aad + ":response")
-        guard let json = try JSONSerialization.jsonObject(with: plain) as? [String: Any] else { throw ControlError.invalidResponse }
-        return json
+        return (packet, aad)
+    }
+    public static func response(_ data: Data, connection: Connection, aad: String) throws -> [String: Any] {
+        guard let envelope = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ControlError.invalidResponse }
+        let plain = try open(envelope, key: SymmetricKey(data: Data(hex: connection.token)), aad: aad + ":response")
+        guard let result = try JSONSerialization.jsonObject(with: plain) as? [String: Any] else { throw ControlError.invalidResponse }
+        return result
+    }
+}
+public enum SecureCommandStorage {
+    private static var query: [String: Any] { [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "dev.fancontrol.watch.commands", kSecAttrAccount as String: "outbox"] }
+    public static func load() -> Data? {
+        var result: CFTypeRef?
+        let q = query.merging([kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]) { _, new in new }
+        guard SecItemCopyMatching(q as CFDictionary, &result) == errSecSuccess else { return nil }
+        return result as? Data
+    }
+    public static func save(_ data: Data) throws {
+        let a: [String: Any] = [kSecValueData as String: data, kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
+        let status = SecItemUpdate(query as CFDictionary, a as CFDictionary)
+        if status == errSecItemNotFound {
+            guard SecItemAdd(query.merging(a) { _, new in new } as CFDictionary, nil) == errSecSuccess else { throw ControlError.invalidConfiguration }
+        } else if status != errSecSuccess { throw ControlError.invalidConfiguration }
     }
 }
 public enum Vault {

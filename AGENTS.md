@@ -25,8 +25,12 @@ force-with-lease for authorized rewrites. Never purge recovery archives.
 The iPhone owns routine APNs/background refresh and visible-phone polling. The
 watch renders persisted snapshots and asks the phone once on visible entry; do
 not add watch background polling or a foreground refresh loop. Phone/background
-reads never wake vehicles. Direct watch commands and their bounded validation
-and confirmation remain independent of the phone.
+reads never wake vehicles. Direct watch commands remain independent of the phone. Save every absolute intent
+in the keychain outbox and schedule its background upload before monitoring.
+HA owns durable execution after acceptance, across watch navigation/inactivity and
+HA restart. Leaving cancels observation/entry work only, never accepted delivery.
+Resume the same operation on return; unrelated selection/config changes must not
+block a valid captured target. No command preflight reads or watch background polling.
 
 A swiped tile persists as the local opening tile until another swipe or an HA selection/configuration revision. Saved phone preferences define a fixed swipe order;
 swiping never changes HA selection. Settings is reached by holding a watch page,
@@ -40,7 +44,7 @@ work. Explicit vehicle taps may start or join one bounded wake attempt. Prefetch
 Immediately project the requested absolute outcome in gray on the originating
 control. Never store projection as observed state. Gray toggles remain tappable:
 an opposite absolute intent supersedes earlier UI work. Preserve the one-second
-fan-speed quiet window. Stale responses cannot recolor another request or target.
+fan-speed quiet window on HA; the watch hands off each revised draft immediately. Stale responses cannot recolor another request or target.
 Matching available HA observations can confirm toggles, fan speed and covers in
 teal. Unknown, unavailable, mismatched, timed-out and ambiguous results stay gray.
 Garage/trunk initial CLOSED is only a gray assumption; its first tap is absolute

@@ -16,6 +16,7 @@ struct ControlsView: View {
                     actionControl("start_exercise", "Start exercise", compact: true)
                     ExercisePlaybackView().frame(maxWidth: .infinity, maxHeight: .infinity)
                     actionControl("stop_exercise", "Stop exercise", compact: true)
+                    if !model.message.isEmpty { Text(model.message).font(.caption2).foregroundStyle(.gray) }
                 }
                 .padding(.horizontal, 5)
                 .frame(width: geometry.size.width, height: geometry.size.height)
@@ -40,6 +41,7 @@ struct ControlsView: View {
                     Text("Connect to Home Assistant").font(.caption)
                     Button("Pair watch") { setup = true }
                 }
+                if !model.message.isEmpty { Text(model.message).font(.caption2).foregroundStyle(.gray) }
             }.padding(.horizontal, 5)
         }
           }

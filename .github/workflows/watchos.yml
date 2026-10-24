@@ -4,6 +4,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      validation_only:
+        description: Run tests and unsigned simulator builds without an archive
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -29,6 +34,7 @@ jobs:
       - name: Capture watch simulator first launch
         run: bash scripts/simulator_preview.sh
       - name: Compile unsigned watchOS archive
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.validation_only) }}
         run: xcodebuild -project FanControlWatch.xcodeproj -scheme FanControl -destination 'generic/platform=iOS' -archivePath build/FanControlWatch.xcarchive CODE_SIGNING_ALLOWED=NO archive
       - uses: actions/upload-artifact@v4
         with:

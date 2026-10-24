@@ -12,6 +12,14 @@ import FanControlCore
         WKApplication.shared().registerForRemoteNotifications()
     }
 
+    func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
+        for task in backgroundTasks {
+            if let transfer = task as? WKURLSessionRefreshBackgroundTask, transfer.sessionIdentifier == CommandDelivery.sessionID {
+                CommandDelivery.shared.reconnect(transfer)
+            } else { task.setTaskCompletedWithSnapshot(false) }
+        }
+    }
+
     func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {
         Self.token = deviceToken.map { String(format: "%02x", $0) }.joined()
         Self.syncRegistration()
