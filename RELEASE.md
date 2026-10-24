@@ -1,3 +1,60 @@
+# Durable command delivery release - 0.8.0 (17), October 24, 2026
+
+Published to the existing **Internal** TestFlight group. Apple build
+`235e769a-793d-4406-a96c-ca0fd44c7b66` is `VALID`, not expired and
+`IN_BETA_TESTING`, with no non-exempt encryption. No external testers, beta review
+submission or App Store release were created.
+
+Signed source: `aff112a6b1b2a5ed7e2017e83495b4efccd9fa73`.
+Phone, watch and complication all report 0.8.0 (17). Later commits are release
+records only. HA 0.9.0 is deployed and loaded; both existing pairings are preserved.
+
+## Changes
+
+- Every HA control now saves one absolute intent in the watch keychain outbox and
+  schedules background submission before monitoring. Navigation and wrist-down
+  cancel UI observation only; accepted commands remain HA-owned.
+- HA persists acceptance and dispatch boundaries, resumes operations after restart
+  within the original deadline, retries safe desired states and never blindly
+  replays ambiguous cover/horn/script/scene actions.
+- Fixed the first-tap audit gaps: transient reads no longer gate dispatch, unrelated
+  configuration does not block a valid captured target, generic services do not
+  block operation acceptance, and battery telemetry cannot block healthy controls.
+  Trunk and climate-OFF confirmation, legacy Exercise configuration, shared wake
+  cancellation/restart and stale upload outcomes are covered by regressions.
+- Fan-speed debounce remains one second and is now HA-owned. Normal wake/retry
+  delays stay silent through 180 seconds plus 15 seconds of final confirmation.
+  Requested/unconfirmed feedback remains gray; receipts do not imply playback or
+  physical completion. Swipe-selected default persistence is retained.
+
+## Validation and evidence
+
+42 Swift core tests and unsigned iPhone/watch simulator builds passed:
+https://github.com/agawlbb/FanControlWatch/actions/runs/40128116674
+
+The release repeated core tests and passed signed archive/export, deep signature,
+production APNs entitlements, bundle/version checks, upload, Apple processing and
+existing internal TestFlight access:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/40128954393
+
+HA passed 242 regression tests, compilation/package/PHP checks and real Home
+Assistant durable-storage/reload checks:
+https://github.com/agawlbb/FanControlHA/actions/runs/40128342770
+Live deployment and rollback: FanControlHA `DEPLOYMENT-0.9.0.md`.
+
+IPA SHA256: `4d46d373bc43c2b725726c0ec648f1d7b661d8586b4bee80cc3b6f7a75dc4a03`.
+Local signed IPA, Apple processing record, logs and signing-branch recovery:
+`build/commands080/`. The temporary signing branch was retired with an exact-head
+lease after preserving recovery evidence; the signing host's main was unchanged.
+
+Remaining physical checks: cellular-only handoff, immediate swipe/wrist-down after
+all watch actions, sleeping-car response, opposite intents/cancellation, HA restart
+during delivery and local audio/headset behavior. Automated checks do not establish
+physical delivery or watchOS background scheduling; ambiguous one-shots can remain
+unconfirmed when the target supplies no deduplication or definitive acknowledgment.
+
+---
+
 # Vehicle reliability release — 0.7.0 (16), October 24, 2026
 
 Uploaded and available to the existing **Internal** TestFlight group. Apple build

@@ -43,7 +43,7 @@ matching Driving panel. Receipt colors never prove physical state or playback.
 
 ## Development and releases
 
-Current version: **0.7.0 (16)**; iOS 17+, watchOS 10+, HA 0.8.0.
+Current version: **0.8.0 (17)**; iOS 17+, watchOS 10+, HA 0.9.0. Published to the existing Internal TestFlight group.
 `swift test` runs core regression tests. XcodeGen uses `project.yml` to generate
 the iPhone, watch and complication targets. Existing GitHub workflows compile
 simulators/archive on main pushes and build/upload TestFlight only by explicit
@@ -56,12 +56,17 @@ Historical release tags and Git history retain earlier release source; old setup
 instructions are superseded by this companion workflow. Licensed AGPL-3.0-only;
 see LICENSE and NOTICE.md. Never commit keys, certificates, pairing secrets or audio.
 
-## Vehicle commands — 0.7.0 (16)
+## HA-owned commands - 0.8.0 (17)
 
-Requires HA integration 0.8.0. Vehicle taps keep immediate gray requested feedback
-while HA coordinates one wake attempt, readiness and bounded delivery. The operation
-allows three minutes plus a 15-second final confirmation check. Expected wake delays
-do not trigger a one-minute Exercise alert; absent evidence is **not confirmed**.
-Ordinary commands cancel on leaving; accepted Exercise Stop continues within its
-deadline. Music/garage requests remain independent of car readiness. Phone snapshots
-and background refresh never wake vehicles. Existing pairings are preserved.
+Requires HA integration 0.9.0. Every HA control saves an absolute intent and schedules
+background submission before monitoring. HA durably accepts it and owns readiness,
+bounded wake, safe retries and confirmation, including recovery after HA restart.
+Leaving the watch screen stops monitoring without cancelling delivery; reopening
+reconciles the same operation. Fan-speed debounce is HA-owned. One-shot actions
+are never blindly replayed after an ambiguous response.
+
+Delivery allows three minutes plus a 15-second read-only final check. Expected
+wake/retry delays do not trigger one-minute Exercise alerts; absent evidence stays
+**not confirmed**. Scripts/scenes/music receipts prove dispatch acceptance only.
+Local music stays watch-owned; phone snapshots and passive reads never wake cars.
+Existing pairings are preserved. See [the delivery contract](COMMAND-DELIVERY.md).
