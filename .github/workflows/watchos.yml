@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       validation_only:
-        description: Run tests and unsigned simulator builds without an archive
+        description: Run core tests and compile unsigned simulators only
         type: boolean
         default: false
 permissions:
@@ -28,10 +28,12 @@ jobs:
       - name: Compile iPhone simulator companion
         run: xcodebuild -project FanControlWatch.xcodeproj -scheme FanControl -destination 'generic/platform=iOS Simulator' -derivedDataPath build-phone CODE_SIGNING_ALLOWED=NO build
       - name: Capture iPhone companion
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.validation_only) }}
         run: bash scripts/phone_preview.sh
       - name: Compile watchOS simulator app
         run: xcodebuild -project FanControlWatch.xcodeproj -scheme FanControlWatch -sdk watchsimulator -destination 'generic/platform=watchOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
       - name: Capture watch simulator first launch
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.validation_only) }}
         run: bash scripts/simulator_preview.sh
       - name: Compile unsigned watchOS archive
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.validation_only) }}
