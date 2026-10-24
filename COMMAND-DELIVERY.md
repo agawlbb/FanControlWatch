@@ -33,3 +33,27 @@ down/navigation, force-quit/OS scheduling, sleeping car and physical target beha
 still require device checks. Apple controls background scheduling; a saved upload
 cannot guarantee immediate execution, especially after user force-quit. No live
 HA commands, deployment or TestFlight upload form part of these automated checks.
+
+## Validation record — October 24, 2026
+
+Application source `7e08fea371dea668703693b24c2ea403b0c6a19e` (0.8.0, build 17)
+passed 42 Swift core tests and unsigned iPhone/watch simulator compilation:
+https://github.com/agawlbb/FanControlWatch/actions/runs/40128116674
+Archive, screenshot-launch and TestFlight steps were skipped. The first run exposed
+an outdated progress-text assertion; it was corrected before this final green run.
+
+HA 0.9.0 source `a5514ffeec2d5a331dd88ea6968c13bf519b579c` passed 242 local
+regression tests and Python compilation, including the former nine failing audit
+scenarios, durable acceptance/reload, storage failure, ambiguous one-shot recovery,
+fan debounce and cancellation during wake persistence. Its isolated real-runtime
+CI record is maintained in FanControlHA/COMMAND-OPERATIONS.md.
+
+Remaining device checks: tap each fan/device/script/scene control, each Driving
+control, Exercise Start/Stop and Work Morning controls; immediately swipe away,
+lower the wrist and return. Verify completion stays bound to the tapped target,
+normal sleeping-car delays remain silent, unknown/offline observations stay gray,
+and local audio evidence remains independent. Also check cellular-only operation,
+HA restart during delivery, revoked/changed roles, opposite intents and watchOS
+force-quit/background scheduling. Simulator compilation does not prove these effects.
+These versions are implemented source; neither HA 0.9.0 nor watch build 17 has been
+deployed, installed, signed or released to TestFlight by this change.
