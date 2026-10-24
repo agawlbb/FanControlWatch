@@ -125,7 +125,7 @@ struct ControlsView: View {
         let receipt = model.actionFeedback(action)
         let gray = ActionReceipts.isGray(receipt)
         let button = Button { model.send(action, label: label) } label: {
-            Text(label)
+            Text(receipt == nil ? label : "Activated")
                 .frame(maxWidth: .infinity, minHeight: compact ? 36 : 40)
                 .foregroundStyle(gray ? Color.gray : Color.mint)
         }

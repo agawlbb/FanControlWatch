@@ -24,7 +24,7 @@ Local audio/volume remain watch-owned. Explicit cancellation, revoked credential
 removed/changed roles and expired requests still stop delivery.
 
 Normal wake/retry delays produce no one-minute alerts. Final Exercise alerts come
-from HA; the originating controls retain their labels and show pending or unconfirmed outcomes in gray, with no separate command-status text. Unknown/unavailable observations never confirm a command.
+from HA; the originating controls show pending or unconfirmed outcomes in gray, with no separate command-status text. Action buttons intentionally change to Activated after a tap. Unknown/unavailable observations never confirm a command.
 
 Validation requires core transport/evidence tests, HA regression and real-runtime
 checks, and unsigned simulator compilation. Paired-watch cellular, immediate wrist-

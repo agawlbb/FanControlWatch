@@ -74,7 +74,7 @@ import FanControlCore
             if args.contains("--preview-settings") { showingSettings = true; observed = [:]; return }
             if args.contains("--preview-action-pending") || args.contains("--preview-action-accepted") {
                 let action = args.contains("--preview-exercise") ? "start_exercise" : "honk"
-                let f = Feedback(target: preview.0.watch_id + "|panel.preview", command: action, label: action == "honk" ? "Honk Horn" : "Start exercise")
+                let f = Feedback(target: preview.0.watch_id + "|panel.preview", command: action, label: "Activated")
                 actionReceipts.begin(f)
                 if args.contains("--preview-action-accepted") { actionReceipts.finish(f, accepted: true) }
                 else { feedback = f }

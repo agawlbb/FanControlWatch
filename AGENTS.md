@@ -100,13 +100,11 @@ OPEN. Dispatch cover/script/scene/music requests at most once per tap.
 
 Command feedback uses color on the existing control, without separate status
 messages such as Requested, Waiting for Home Assistant, Request accepted or Not
-confirmed. Preserve action names after a tap; do not replace them with REQUESTED
-or Activated. State controls immediately show the requested ON/OFF, OPEN/CLOSED
+confirmed. Action buttons intentionally change to Activated after a tap; retain that behavior. Do not use REQUESTED as a generic replacement. State controls immediately show the requested ON/OFF, OPEN/CLOSED
 or speed in gray; only matching evidence promotes their color. Failures stay gray.
 Setup, pairing and audio-route guidance are separate from command feedback.
 
-Leave for Work, Horn, Start/Stop Exercise and Podcast keep their labels after
-a tap. Teal requires the action's authenticated dispatch receipt or required HA
+Leave for Work, Horn, Start/Stop Exercise and Podcast show gray Activated after a tap. Teal requires the action's authenticated dispatch receipt or required HA
 operation completion; queue acceptance alone is insufficient. A dispatch receipt
 does not prove physical completion or playback. Resetting session presentation on
 leaving/configuration change must not delete saved operations or prevent
