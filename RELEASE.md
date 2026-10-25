@@ -1,3 +1,64 @@
+# Command feedback and reliability release - 0.9.0 (18), October 25, 2026
+
+Published to the existing **Internal** TestFlight group. Apple build
+`59d77956-c358-4b1a-b0d4-1c0ce47b933f` is `VALID`, not expired and
+`IN_BETA_TESTING`, with no non-exempt encryption. No external testers, beta review
+submission or App Store release were created.
+
+Signed source: `a1161318e91ea0c54c956ecd963a09b4a8321aae`.
+Phone, watch and complication all report 0.9.0 (18). Later documentation commits
+do not change that signed source. HA 0.10.0 and the matching outcome relay are
+installed and verified; both existing pairings were preserved.
+
+## Changes
+
+- Every control immediately projects the requested outcome in gray and turns teal
+  on authenticated HA ownership, including Climate. HA execution and observation
+  continue independently after leaving the watch screen. Terminal failures return
+  gray. Existing controls have no separate command status messages.
+- Foreground/background acknowledgment and reopening share persisted receipts;
+  stale snapshots/callbacks cannot overwrite newer requests. Visible vehicle entry
+  performs bounded wake/readiness refresh. Cold climate presents gray OFF so the
+  first tap remains absolute ON despite stale cached ON.
+- Generic command failures use a dedicated watch notification destination, separate
+  from phone snapshots. Expected wake/retry delays remain silent; missing handoff
+  has a local not-confirmed notification fallback after 195 seconds plus 30 seconds
+  transport grace. Notification wording is separate from control presentation.
+- Bounded diagnostics correlate tap, upload, HA arrival/acceptance, wake, dispatch,
+  observed outcome, feedback display and notification transport. Future-command
+  requirements are recorded in both repositories' AGENTS.md.
+
+## Validation and evidence
+
+50 Swift tests and unsigned iPhone/watch simulator builds passed:
+https://github.com/agawlbb/FanControlWatch/actions/runs/40199880630
+
+The release repeated 50 Swift tests and passed signed archive/export, deep
+signature verification, production APNs entitlements, three bundle/version checks,
+upload, Apple processing and existing internal group access:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/40242439379
+
+257 HA/relay/deployment regression tests passed locally. Matching runtime sources
+passed real-HA, PHP, compilation and package checks:
+https://github.com/agawlbb/FanControlHA/actions/runs/40242073803
+Relay deployment/readback passed:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/40242258723
+Live HA source hashes, loaded version and pairing preservation passed after restart.
+See FanControlHA `DEPLOYMENT-0.10.0.md` for backups and rollback.
+
+IPA SHA256: `61271a1f6dc98d1d7d4bf7935f5f8ba821128796ae6023b9f776b4cb07edd1c2`.
+Local signed IPA, Apple processing record, logs and branch recovery are preserved
+under `build/corrections-release/`. The temporary signing/relay branch was retired
+with an exact-head lease after recovery verification. CTR main advanced under its
+owner and was not changed by this release.
+
+Physical watch/car checks remain: cellular-only swipe/tap/immediate exit,
+sleeping-car wake/climate, notification permission and delivery, opposite intents,
+HA restart and observed-state freshness. Automated checks do not prove paired
+watch rendering, OS scheduling, actual notifications or physical car outcomes.
+
+---
+
 # Durable command delivery release - 0.8.0 (17), October 24, 2026
 
 Published to the existing **Internal** TestFlight group. Apple build

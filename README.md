@@ -1,7 +1,8 @@
 # Fan Control for iPhone and Apple Watch
 
-**Unreleased source:** 0.9.0 (18) command-feedback, vehicle-entry and watch-alert
-corrections. These are not in TestFlight. See [the implementation record](UNRELEASED-CORRECTIONS.md).
+**Current TestFlight release:** 0.9.0 (18), with HA 0.10.0 and the updated
+command outcome relay. See [release evidence](RELEASE.md) and
+[the implementation record](UNRELEASED-CORRECTIONS.md).
 
 Independent watchOS 10+ SwiftUI client for the [Fan Control HA integration](https://github.com/agawlbb/FanControlHA), ported from [Android 1.5.3](https://github.com/agawlbb/FanControl/tree/841587d42c391afaac4df77621c7428dd250b2c9).
 
@@ -46,7 +47,7 @@ matching Driving panel. Receipt colors never prove physical state or playback.
 
 ## Development and releases
 
-Current version: **0.8.0 (17)**; iOS 17+, watchOS 10+, HA 0.9.0. Published to the existing Internal TestFlight group.
+Current version: **0.9.0 (18)**; iOS 17+, watchOS 10+, HA 0.10.0. Published to the existing Internal TestFlight group.
 `swift test` runs core regression tests. XcodeGen uses `project.yml` to generate
 the iPhone, watch and complication targets. Existing GitHub workflows compile
 simulators/archive on main pushes and build/upload TestFlight only by explicit

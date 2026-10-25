@@ -1,10 +1,9 @@
-# Unreleased corrections - October 25, 2026
+# Released corrections - October 25, 2026
 
-Source version 0.9.0 (18). The installed/TestFlight release remains 0.8.0 (17).
-No HA deployment, relay deployment, signing, installation or TestFlight publication
-is authorized by this work. HA and relay must be updated together with this app
-only after a later explicit release instruction. The source API capability is
-command_operations_version 2 (HA source 0.10.0).
+Apple 0.9.0 (18) is published to the existing Internal TestFlight group. HA 0.10.0
+and the outcome relay are deployed; command_operations_version is 2. This rollout
+followed the user's subsequent explicit build/release authorization.
+See [release evidence](RELEASE.md). This filename is retained for existing links.
 
 ## Color and lifecycle contract
 
