@@ -46,6 +46,9 @@ import FanControlCore
         content.title = state["operation_status"] as? String == "failed" ? "Fan Control request failed" : "Fan Control not confirmed"
         content.body = "Home Assistant could not confirm the requested outcome."
         content.sound = .default
-        Task { try? await center.add(UNNotificationRequest(identifier: "command-" + id, content: content, trigger: nil)) }
+        Task {
+            guard (try? await center.requestAuthorization(options: [.alert, .sound])) == true else { return }
+            try? await center.add(UNNotificationRequest(identifier: "command-" + id, content: content, trigger: nil))
+        }
     }
 }

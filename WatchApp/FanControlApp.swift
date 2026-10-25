@@ -88,21 +88,24 @@ import FanControlCore
         guard let connection else { return }
         if let d = device { resumeCommand(connection, d) }
         let ticket = generation
+        let entryID = UUID().uuidString.lowercased()
+        let vehicleEntry = allowEntryWake && device?.panel?.vehicle == true
+        if vehicleEntry { CommandDelivery.shared.trace(entryID, "entry_displayed") }
         work = Task {
+            defer { if vehicleEntry { CommandDelivery.shared.trace(entryID, Task.isCancelled ? "entry_cancelled" : "entry_finished") } }
             if let deadline = wakeAfter {
                 do { try await Task.sleep(until: deadline, clock: .continuous) } catch { return }
             }
             guard !Task.isCancelled, ticket == generation, visible, allowEntryWake,
                   let d = device, let p = d.panel, p.vehicle else { return }
             let client = Integration(connection)
-            let id = UUID().uuidString.lowercased()
+            let id = entryID
             let issued = Int(Date().timeIntervalSince1970 * 1000)
             CommandDelivery.shared.trace(id, "entry_displayed_settled")
             let deadline = Date().addingTimeInterval(105)
             var body = panelBody(p, command: "wake")
             body["action"] = "operation_submit"; body["operation_id"] = id; body["issued_at_ms"] = issued
             var accepted = false
-            defer { CommandDelivery.shared.trace(id, Task.isCancelled ? "entry_cancelled" : "entry_finished") }
             // Bounded, user-visible entry confirmation only. No routine/background polling.
             while Date() < deadline && visible && ticket == generation && !Task.isCancelled {
                 guard let current = self.connection, current.watch_id == connection.watch_id, current.token == connection.token,
@@ -184,7 +187,11 @@ import FanControlCore
         body["action"] = "operation_submit"; body["operation_id"] = identity; body["issued_at_ms"] = issued
         if quietWindow { body["not_before_ms"] = issued + 1000 }
         do { try CommandDelivery.shared.enqueue(body, connection: c, device: d) }
-        catch { feedback?.phase = .unconfirmed; commandPending = false; return }
+        catch {
+            feedback?.phase = .unconfirmed; commandPending = false
+            CommandAlerts.shared.outcome(identity, state: ["operation_id": identity, "operation_status": "failed", "local_error": true])
+            return
+        }
         monitor(identity, body: body, connection: c, device: d, feedback: f)
     }
     private func monitor(_ identity: String, body: [String: Any], connection c: Connection, device d: Device, feedback f: Feedback) {

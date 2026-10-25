@@ -49,14 +49,16 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
     private func save() throws { try SecureCommandStorage.save(JSONEncoder().encode(entries)) }
     func enqueue(_ body: [String: Any], connection: Connection, device: Device) throws {
         guard let id = body["operation_id"] as? String, let issued = body["issued_at_ms"] as? Int else { throw ControlError.invalidConfiguration }
+        let previous = entries
+        let replaced = entries.values.filter { $0.entity == device.entity && $0.connection.watch_id == connection.watch_id }.map(\.id)
         entries = entries.filter { Date().timeIntervalSince($0.value.issued) < 600 }
-        for old in entries.values where old.entity == device.entity && old.connection.watch_id == connection.watch_id { CommandAlerts.shared.clear(old.id) }
         entries = entries.filter { $0.value.entity != device.entity || $0.value.connection.watch_id != connection.watch_id }
         // Retain only the latest intent for each target; never recover superseded work.
         entries[id] = Entry(id: id, connection: connection, entity: device.entity, body: try JSONSerialization.data(withJSONObject: body), issued: Date(timeIntervalSince1970: Double(issued) / 1000))
         entries[id]?.timings = ["tap": Double(issued)]
         entries[id]?.mark("saved")
-        try save()
+        do { try save() } catch { entries = previous; throw error }
+        for id in replaced { CommandAlerts.shared.clear(id) }
         CommandAlerts.shared.begin(id, deadline: Date(timeIntervalSince1970: Double(issued) / 1000 + VehicleOperation.alertSeconds))
         try? upload(id, remote: false)
     }
