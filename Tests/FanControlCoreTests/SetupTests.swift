@@ -27,6 +27,7 @@ final class SetupTests: XCTestCase {
     func testDispatchAcknowledgmentDoesNotClaimScriptCompletion() {
         var feedback = Feedback(target:"same watch/panel",command:"leave",label:"Leave for work")
         feedback.phase = .accepted
-        XCTAssertTrue(feedback.gray)
+        XCTAssertFalse(feedback.gray)
+        XCTAssertFalse(Evidence.matches("activate", ["accepted":true], panel:nil))
     }
 }
