@@ -5,7 +5,7 @@ import FanControlCore
 
 @main struct FanControlApp: App {
     @WKApplicationDelegateAdaptor(PushNotifications.self) private var pushDelegate
-    init() { UNUserNotificationCenter.current().delegate = ExerciseAlerts.shared; WatchCompanion.shared.start(); CommandDelivery.shared.recover() }
+    init() { UNUserNotificationCenter.current().delegate = CommandAlerts.shared; WatchCompanion.shared.start(); CommandDelivery.shared.recover() }
     var body: some Scene {
         WindowGroup { ControlsView() }
             .backgroundTask(.appRefresh(BackgroundRefresh.identifier)) { await BackgroundRefresh.run() }
@@ -16,11 +16,13 @@ import FanControlCore
     @Published var observed: [String: Any] = [:]
     @Published var stateFresh = false
     @Published var feedback: Feedback?
+    @Published private(set) var commandPending = false
     @Published var speedDraft: Int?
     @Published private var actionReceipts = ActionReceipts()
     private var work: Task<Void, Never>?
     private var command: Task<Void, Never>?
     private var vehicleIntent: (client: Integration, id: String, alert: String?)?
+    private var activeIntent: (id: String, connection: Connection, device: Device, feedback: Feedback)?
     private var generation = UUID()
     private var visible = false
     private let defaultTile = DefaultWatchTile()
@@ -31,7 +33,7 @@ import FanControlCore
         guard !showingSettings else { return nil }
         return connection?.devices.first { $0.entity == (sessionTarget ?? connection?.entity) }
     }
-    var busy: Bool { feedback?.phase == .pending }
+    var busy: Bool { commandPending }
     var canAdjustSpeed: Bool { visible && device?.domain == "fan" && (!busy || feedback?.command == "turn_on" || feedback?.command.hasPrefix("speed") == true) }
     var displayedSpeed: Int {
         if let speedDraft { return speedDraft }
@@ -42,6 +44,7 @@ import FanControlCore
     func leave(resetReceipts: Bool = true) {
         if resetReceipts { actionReceipts.clear() }
         visible = false; generation = UUID(); work?.cancel(); command?.cancel(); speedDraft = nil
+        commandPending = false; activeIntent = nil
         if feedback?.phase == .pending { feedback?.phase = .unconfirmed }
         stateFresh = false
     }
@@ -86,30 +89,48 @@ import FanControlCore
         if let d = device { resumeCommand(connection, d) }
         let ticket = generation
         work = Task {
-
-            // A foreground entry asks the phone once. Only explicit visible
-            // vehicle entry and user commands perform watch-side HA work.
             if let deadline = wakeAfter {
                 do { try await Task.sleep(until: deadline, clock: .continuous) } catch { return }
             }
-            guard !Task.isCancelled, ticket == generation, visible,
-                  allowEntryWake, let d = device, let p = d.panel, p.vehicle else { return }
-            do {
-                let raw = try await Integration(connection).request(["action": "config", "platform": "watch_os"])
-                var full = raw; full["token"] = connection.token; full["watch_id"] = connection.watch_id
-                let live = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: full)).validated()
-                guard ticket == generation, visible, !Task.isCancelled,
-                      live.devices.contains(d), live.watch_id == connection.watch_id, live.token == connection.token,
-                      WKExtension.shared().applicationState == .active else { return }
-                guard raw["vehicle_operations_version"] as? Int == 1 else { return }
-                var body = panelBody(p, command: "wake")
-                body["action"] = "vehicle_submit"
-                body["operation_id"] = UUID().uuidString.lowercased()
-                body["issued_at_ms"] = Int(Date().timeIntervalSince1970 * 1000)
-                _ = try? await Integration(live).request(body)
-            } catch { /* A stale entry never wakes another target. */ }
+            guard !Task.isCancelled, ticket == generation, visible, allowEntryWake,
+                  let d = device, let p = d.panel, p.vehicle else { return }
+            let client = Integration(connection)
+            let id = UUID().uuidString.lowercased()
+            let issued = Int(Date().timeIntervalSince1970 * 1000)
+            CommandDelivery.shared.trace(id, "entry_displayed_settled")
+            let deadline = Date().addingTimeInterval(105)
+            var body = panelBody(p, command: "wake")
+            body["action"] = "operation_submit"; body["operation_id"] = id; body["issued_at_ms"] = issued
+            var accepted = false
+            defer { CommandDelivery.shared.trace(id, Task.isCancelled ? "entry_cancelled" : "entry_finished") }
+            // Bounded, user-visible entry confirmation only. No routine/background polling.
+            while Date() < deadline && visible && ticket == generation && !Task.isCancelled {
+                guard let current = self.connection, current.watch_id == connection.watch_id, current.token == connection.token,
+                      device?.sameCommandTarget(as: d) == true else { return }
+                do {
+                    let state = try await client.request(accepted ? ["action": "operation_status", "operation_id": id] : body)
+                    guard state["operation_id"] as? String == id else { throw ControlError.invalidResponse }
+                    if !accepted { CommandDelivery.shared.trace(id, "entry_ack_received") }
+                    accepted = state["operation_status"] as? String != "unknown"
+                    guard visible, ticket == generation, !Task.isCancelled, device?.sameCommandTarget(as: d) == true else { return }
+                    if state["observation_fresh"] as? Bool == true {
+                        // Never replace a command projection; this cache contains observations only.
+                        observed = state; stateFresh = true
+                        CommandDelivery.shared.trace(id, "entry_state_displayed")
+                        ObservationCache.shared.save(state, connection: current, device: d)
+                        if state["vehicle_ready"] as? Bool == true { return }
+                    }
+                    if ["failed", "cancelled", "unconfirmed"].contains(state["operation_status"] as? String ?? "") { return }
+                } catch {
+                    if Task.isCancelled { return }
+                    if case ControlError.rejected(let code) = error, code != 429 && code < 500 { return }
+                    // Retry this same scoped entry while it remains visible; do not wake after leaving.
+                }
+                do { try await Task.sleep(nanoseconds: 2_000_000_000) } catch { return }
+            }
         }
     }
+
     func swipe(_ direction: Int) {
         guard let c = connection else { return }
         let current: WatchPage = showingSettings ? .settings : .device(sessionTarget ?? c.entity)
@@ -153,7 +174,7 @@ import FanControlCore
         if !quietWindow { speedDraft = nil }
         let f = Feedback(target: ActionReceipts.applies(action) ? c.watch_id + "|" + d.entity : c.identity,
                          command: action, label: RequestedPresentation.label(command: action, original: label))
-        feedback = f
+        feedback = f; commandPending = true
         if ActionReceipts.applies(action) { actionReceipts.begin(f) }
         if action == "start_exercise" { ExercisePlayer.shared.start(c, target: d) }
         if action == "stop_exercise" { ExercisePlayer.shared.stop() }
@@ -163,13 +184,16 @@ import FanControlCore
         body["action"] = "operation_submit"; body["operation_id"] = identity; body["issued_at_ms"] = issued
         if quietWindow { body["not_before_ms"] = issued + 1000 }
         do { try CommandDelivery.shared.enqueue(body, connection: c, device: d) }
-        catch { feedback?.phase = .unconfirmed; return }
+        catch { feedback?.phase = .unconfirmed; commandPending = false; return }
         monitor(identity, body: body, connection: c, device: d, feedback: f)
     }
     private func monitor(_ identity: String, body: [String: Any], connection c: Connection, device d: Device, feedback f: Feedback) {
         let ticket = generation
         let client = Integration(c)
         vehicleIntent = (client, identity, nil)
+        activeIntent = (identity, c, d, f)
+        commandPending = true
+        refreshCommandOutcome(identity)
         command = Task {
             let issued = body["issued_at_ms"] as? Int ?? 0
             let deadline = Date(timeIntervalSince1970: Double(issued) / 1000 + VehicleOperation.alertSeconds)
@@ -180,6 +204,7 @@ import FanControlCore
                 first = false
                 if Task.isCancelled { return }
                 do {
+                    CommandDelivery.shared.trace(identity, "foreground_request")
                     // Submit directly. HA authenticates and validates the captured target;
                     // preflight reads must never stand between the tap and acceptance.
                     let state: [String: Any]
@@ -193,32 +218,14 @@ import FanControlCore
                     submitted = status != "unknown"
                     CommandDelivery.shared.outcome(identity, state: state)
                     guard !Task.isCancelled, visible, ticket == generation, feedback?.id == f.id else { return }
-                    if ActionReceipts.applies(f.command), ActionReceipts.acknowledgesHandoff(state) {
-                        // Teal Activated means HA owns completion, even while it is working.
-                        // Keep the operation pending so existing conflict rules still apply.
-                        actionReceipts.finish(f, accepted: true)
-                    }
-                    if status == "complete" || status == "accepted" {
-                        speedDraft = nil
-                        if ActionReceipts.applies(f.command) {
-                            actionReceipts.finish(f, accepted: true); feedback?.phase = .accepted
-                        } else if status == "complete" {
-                            ObservationCache.shared.save(state, connection: c, device: d)
-                            observed = state; stateFresh = true; feedback?.phase = .confirmed
-                        } else { feedback?.phase = .unconfirmed }
-                        return
-                    }
-                    if ["failed", "cancelled", "unconfirmed"].contains(status) {
-                        speedDraft = nil; feedback?.phase = .unconfirmed
-                        if ActionReceipts.applies(f.command) { actionReceipts.finish(f, accepted: false) }
-                        return
-                    }
+                    refreshCommandOutcome(identity)
+                    if CommandPolicy.terminal.contains(status) { return }
                 } catch {
                     if Task.isCancelled { return }
                     if case ControlError.rejected(let code) = error, code != 429 && code < 500 {
                         guard ticket == generation, feedback?.id == f.id else { return }
                         CommandDelivery.shared.rejected(identity)
-                        feedback?.phase = .unconfirmed
+                        feedback?.phase = .unconfirmed; commandPending = false
                         if ActionReceipts.applies(f.command) { actionReceipts.finish(f, accepted: false) }
                         return
                     }
@@ -227,8 +234,34 @@ import FanControlCore
                 do { try await Task.sleep(nanoseconds: 1_500_000_000) } catch { return }
             }
             guard ticket == generation, feedback?.id == f.id else { return }
-            speedDraft = nil; feedback?.phase = .unconfirmed
+            refreshCommandOutcome(identity)
+            if let data = CommandDelivery.shared.record(identity)?.result,
+               let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               CommandPolicy.terminal.contains(state["operation_status"] as? String ?? "") { return }
+            speedDraft = nil; feedback?.phase = .unconfirmed; commandPending = false
             if ActionReceipts.applies(f.command) { actionReceipts.finish(f, accepted: false) }
+        }
+    }
+    func refreshCommandOutcome(_ id: String) {
+        guard visible, let intent = activeIntent, intent.id == id,
+              let c = connection, c.watch_id == intent.connection.watch_id, c.token == intent.connection.token,
+              let current = device, current.sameCommandTarget(as: intent.device), feedback?.id == intent.feedback.id,
+              let data = CommandDelivery.shared.record(id)?.result,
+              let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              state["operation_id"] as? String == id else { return }
+        let status = state["operation_status"] as? String ?? "unknown"
+        if CommandPolicy.owns(state) {
+            if feedback?.phase != .accepted { CommandDelivery.shared.trace(id, "ack_displayed") }
+            feedback?.phase = .accepted; speedDraft = nil
+            if ActionReceipts.applies(intent.feedback.command) { actionReceipts.finish(intent.feedback, accepted: true) }
+        } else if ["failed", "unconfirmed", "cancelled"].contains(status) {
+            feedback?.phase = .unconfirmed
+            if ActionReceipts.applies(intent.feedback.command) { actionReceipts.finish(intent.feedback, accepted: false) }
+        }
+        commandPending = CommandPolicy.active.contains(status)
+        if state["observation_fresh"] as? Bool == true {
+            observed = state; stateFresh = true
+            ObservationCache.shared.save(state, connection: c, device: current)
         }
     }
     private func resumeCommand(_ c: Connection, _ d: Device) {
@@ -249,7 +282,8 @@ import FanControlCore
             Task { _ = try? await intent.client.request(["action": "operation_cancel", "operation_id": intent.id]) }
         }
         command?.cancel(); speedDraft = nil
-        if busy { feedback?.phase = .unconfirmed }
+        if let intent = activeIntent { CommandAlerts.shared.clear(intent.id) }
+        if busy { feedback?.phase = .unconfirmed }; commandPending = false
     }
     func receiveCompanion() {
         guard let saved = Vault.load() else { return }
@@ -258,11 +292,20 @@ import FanControlCore
         // Persisted snapshots can arrive during a command. Never clear or
         // recolor that intent; apply selection on its next safe entry.
         guard feedback == nil, speedDraft == nil else { return }
-        let changed = connection.map { !$0.sameTarget(as: saved) || $0.revision != saved.revision } ?? true
+        let prior = device
+        let nextEntity = sessionTarget ?? saved.entity
+        let next = saved.devices.first { $0.entity == nextEntity }
+        let same = prior.flatMap { old in next.map { old.sameCommandTarget(as: $0) } } ?? false
+        let selectedChanged = connection?.entity != saved.entity
         connection = saved
-        if changed { enter(resetSelection: true, allowEntryWake: false) }
-        else if let d = device { observed = ObservationCache.shared.load(saved, d); stateFresh = false }
+        if !same || selectedChanged {
+            enter(resetSelection: true, allowEntryWake: visible)
+        } else if !stateFresh, let d = device {
+            observed = ObservationCache.shared.load(saved, d)
+            // A passive snapshot cannot cancel the active entry coordinator or confirm a command.
+        }
     }
+
     func paired(_ value: Connection) { if connection?.watch_id != value.watch_id || connection?.token != value.token { CommandDelivery.shared.clear() }; connection = value; WatchCompanion.shared.provision(); enter() }
     func forget() { CommandDelivery.shared.clear(); defaultTile.clear(); leave(); showingSettings = false; ExercisePlayer.shared.forget(); ObservationCache.shared.clear(); PushDiagnostics.shared.clear(); Vault.clear(); connection = nil; observed = [:]; feedback = nil }
 }

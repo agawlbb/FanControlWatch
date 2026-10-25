@@ -45,6 +45,9 @@ struct ControlsView: View {
           }
         }
         .persistentSystemOverlays(.hidden)
+        .onReceive(NotificationCenter.default.publisher(for: .commandOutcomeSaved)) { note in
+            if let id = note.object as? String { model.refreshCommandOutcome(id) }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .companionSnapshotSaved)) { _ in model.receiveCompanion() }
         .onLongPressGesture { setup = true }
         .simultaneousGesture(DragGesture(minimumDistance: 35).onEnded { value in
@@ -66,7 +69,7 @@ struct ControlsView: View {
     private func control(_ action: String, _ label: String, known: Bool = true, enabled: Bool = true) -> some View {
         let applies = model.feedback.map { $0.command == action || ToggleIntent.replaces(action, $0.command) } ?? false
         let feedback = applies ? model.feedback : nil
-        let gray = !model.stateFresh || (feedback?.gray ?? !known)
+        let gray = feedback?.gray ?? (!model.stateFresh || !known)
         let shown = feedback?.label ?? label
         let blocked = model.busy && !ToggleIntent.replaces(action, model.feedback?.command)
         return Button { model.send(action, label: label) } label: {
@@ -79,7 +82,7 @@ struct ControlsView: View {
         let state = model.observed["state"] as? String
         let available = state == "on" || state == "off"
         if ["script", "scene"].contains(d.domain) {
-            control("activate", "Run", known: false)
+            actionControl("activate", "Run")
         } else if ["fan", "light", "switch", "input_boolean"].contains(d.domain) {
             // Label projects the absolute next state immediately on the originating control.
             let pending = model.feedback?.phase != .confirmed && (model.feedback?.command == "turn_on" || model.feedback?.command == "turn_off")
@@ -92,7 +95,7 @@ struct ControlsView: View {
                 HStack {
                     Button("−") { model.adjust(-1) }.disabled(!model.canAdjustSpeed || model.displayedSpeed <= 1)
                     Text(model.speedDraft.map(String.init) ?? (model.feedback?.command.hasPrefix("speed") == true ? model.feedback!.label : speed.map(String.init) ?? "1"))
-                        .foregroundStyle(!model.stateFresh || percentage == nil || model.speedDraft != nil || model.feedback?.command.hasPrefix("speed") == true && model.feedback!.gray ? Color.gray : Color.mint)
+                        .foregroundStyle((model.feedback?.command.hasPrefix("speed") == true ? model.feedback!.gray : !model.stateFresh || percentage == nil || model.speedDraft != nil) ? Color.gray : Color.mint)
                     Button("+") { model.adjust(1) }.disabled(!model.canAdjustSpeed || model.displayedSpeed >= 6)
                 }
                 .tint(.mint)
@@ -137,9 +140,9 @@ struct ControlsView: View {
         } else { button }
     }
     private func climate(_ p: Panel) -> some View {
-        let on = model.observed["climate_on"] as? Bool == true
+        let on = model.stateFresh && model.observed["climate_on"] as? Bool == true
         let pending = model.feedback?.phase != .confirmed && model.feedback?.command.hasPrefix("climate_") == true
-        let action = pending ? ToggleIntent.opposite(model.feedback!.command)! : on ? "climate_off" : "climate_on"
+        let action = CommandPolicy.climateIntent(observedOn: on, fresh: model.stateFresh, previous: pending ? model.feedback?.command : nil)
         let available = model.observed[on && p.type == "driving" ? "climate_off_available" : "climate_available"] as? Bool == true
         return control(action, "\(p.climate_label ?? "Climate")\n\(on ? "ON" : "OFF")", known: available)
     }

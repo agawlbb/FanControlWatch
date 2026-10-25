@@ -1,6 +1,9 @@
 import Foundation
 import WatchKit
 import FanControlCore
+import OSLog
+
+extension Notification.Name { static let commandOutcomeSaved = Notification.Name("commandOutcomeSaved") }
 
 // The keychain outbox owns intent until HA acknowledges durable acceptance.
 // A background upload hands delivery to watchOS immediately, before screen exit.
@@ -8,6 +11,7 @@ import FanControlCore
     static let shared = CommandDelivery()
     static let sessionID = "dev.fancontrol.watch.command-delivery"
     typealias Entry = CommandRecord
+    private let logger = Logger(subsystem: "dev.fancontrol.watch", category: "command-delivery")
     private var entries: [String: Entry] = [:]
     private var buffers: [Int: Data] = [:]
     private var backgroundTasks: [WKURLSessionRefreshBackgroundTask] = []
@@ -23,20 +27,46 @@ import FanControlCore
         super.init()
         if let data = SecureCommandStorage.load(), let saved = try? JSONDecoder().decode([String: Entry].self, from: data) { entries = saved }
     }
+    func trace(_ id: String, _ phase: String) {
+        entries[id]?.mark(phase)
+        try? save()
+        var events = UserDefaults.standard.array(forKey: "commandTimingEvents") as? [[String: String]] ?? []
+        events.append(["id": id, "phase": phase, "at": String(Date().timeIntervalSince1970 * 1000)])
+        UserDefaults.standard.set(Array(events.suffix(100)), forKey: "commandTimingEvents")
+        logger.info("operation=\(id, privacy: .public) phase=\(phase, privacy: .public)")
+    }
+    func diagnostics() -> [String] {
+        let events = UserDefaults.standard.array(forKey: "commandTimingEvents") as? [[String: String]] ?? []
+        var result = events.reversed().map { ($0["id"] ?? "") + " " + ($0["phase"] ?? "") + " " + ($0["at"] ?? "") }
+        for entry in entries.values {
+            if let data = entry.result, let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let timing = state["timing"] as? [String: Any] {
+                result.append(entry.id + " HA " + String(describing: timing))
+            }
+        }
+        return result
+    }
     private func save() throws { try SecureCommandStorage.save(JSONEncoder().encode(entries)) }
     func enqueue(_ body: [String: Any], connection: Connection, device: Device) throws {
         guard let id = body["operation_id"] as? String, let issued = body["issued_at_ms"] as? Int else { throw ControlError.invalidConfiguration }
         entries = entries.filter { Date().timeIntervalSince($0.value.issued) < 600 }
+        for old in entries.values where old.entity == device.entity && old.connection.watch_id == connection.watch_id { CommandAlerts.shared.clear(old.id) }
         entries = entries.filter { $0.value.entity != device.entity || $0.value.connection.watch_id != connection.watch_id }
         // Retain only the latest intent for each target; never recover superseded work.
         entries[id] = Entry(id: id, connection: connection, entity: device.entity, body: try JSONSerialization.data(withJSONObject: body), issued: Date(timeIntervalSince1970: Double(issued) / 1000))
+        entries[id]?.timings = ["tap": Double(issued)]
+        entries[id]?.mark("saved")
         try save()
+        CommandAlerts.shared.begin(id, deadline: Date(timeIntervalSince1970: Double(issued) / 1000 + VehicleOperation.alertSeconds))
         try? upload(id, remote: false)
     }
     private func upload(_ id: String, remote: Bool, delay: TimeInterval = 0) throws {
         guard let entry = entries[id], !entry.accepted, Date().timeIntervalSince(entry.issued) < 180,
               let current = Vault.load(), current.watch_id == entry.connection.watch_id, current.token == entry.connection.token,
               let body = try JSONSerialization.jsonObject(with: entry.body) as? [String: Any] else { return }
+        entries[id]?.mark(remote ? "remote_upload" : "local_upload")
+        try? save()
+        logger.info("operation=\(id, privacy: .public) upload=\(remote ? "remote" : "local", privacy: .public)")
         let packet = try CommandEnvelope.prepare(body, connection: entry.connection)
         let address = remote ? (entry.connection.remote_url ?? entry.connection.url) : entry.connection.url
         var request = URLRequest(url: try Connection.address(address).appendingPathComponent("api/fan_control/watch/request"))
@@ -50,6 +80,8 @@ import FanControlCore
         task.resume()
     }
     func clear() {
+        for id in entries.keys { CommandAlerts.shared.clear(id) }
+        UserDefaults.standard.removeObject(forKey: "commandTimingEvents")
         entries.removeAll(); SecureCommandStorage.clear()
         session.getAllTasks { tasks in for task in tasks { task.cancel() } }
     }
@@ -66,21 +98,27 @@ import FanControlCore
     }
     func outcome(_ id: String, state: [String: Any]) {
         guard var entry = entries[id], state["operation_id"] as? String == id else { return }
-        let status = state["operation_status"] as? String ?? "unknown"
-        if let data = entry.result, let previous = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            let old = previous["operation_status"] as? String ?? ""
-            if ["complete", "accepted"].contains(old) { return }
-            if ["failed", "cancelled", "unconfirmed"].contains(old), !["complete", "accepted"].contains(status) { return }
-        }
-        guard status != "unknown" else { return }
+        guard CommandPolicy.accept(state, id: id, previous: entry.result) else { return }
         entry.accepted = true
+        entry.mark("ack_received")
         entry.result = try? JSONSerialization.data(withJSONObject: state)
         entries[id] = entry
         try? save()
+        CommandAlerts.shared.outcome(id, state: state)
+        logger.info("operation=\(id, privacy: .public) status=\(state["operation_status"] as? String ?? "unknown", privacy: .public)")
+        NotificationCenter.default.post(name: .commandOutcomeSaved, object: id)
+    }
+    func record(_ id: String) -> Entry? { entries[id] }
+    func reconcile(_ id: String) async {
+        guard let entry = entries[id], let current = Vault.load(), current.watch_id == entry.connection.watch_id,
+              current.token == entry.connection.token else { return }
+        if let state = try? await Integration(entry.connection).request(["action": "operation_status", "operation_id": id]) {
+            outcome(id, state: state)
+        }
     }
     func rejected(_ id: String) {
         guard entries[id]?.accepted == false else { return }
-        outcome(id, state: ["operation_id": id, "operation_status": "failed", "reason": "Request rejected"])
+        outcome(id, state: ["operation_id": id, "operation_status": "failed", "reason": "Request rejected", "local_error": true])
         session.getAllTasks { tasks in
             for task in tasks where task.taskDescription?.components(separatedBy: "|").first == id { task.cancel() }
         }

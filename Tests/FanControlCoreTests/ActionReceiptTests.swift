@@ -26,10 +26,10 @@ final class ActionReceiptTests: XCTestCase {
         XCTAssertFalse(ActionReceipts.acknowledgesHandoff(["stage": "accepted"]))
     }
     func testActionsExcludeFanSpeedAndToggles() {
-        for command in ["leave", "honk", "podcast", "start_exercise", "stop_exercise"] {
+        for command in ["activate", "leave", "honk", "podcast", "start_exercise", "stop_exercise"] {
             XCTAssertTrue(ActionReceipts.applies(command))
         }
-        for command in ["turn_on", "turn_off", "speed1", "speed6", "climate_on", "climate_off", "garage_open", "trunk_close", "activate"] {
+        for command in ["turn_on", "turn_off", "speed1", "speed6", "climate_on", "climate_off", "garage_open", "trunk_close"] {
             XCTAssertFalse(ActionReceipts.applies(command))
             XCTAssertFalse(ActionReceipts.acknowledges(command, response: [:]))
         }

@@ -39,6 +39,10 @@ import FanControlCore
             // credentials and Apple's signing key never enter the watch app.
             guard !Task.isCancelled, Vault.load() == original else { return }
             _ = try? await Integration(original).request([
+                "action": "push_register", "purpose": "command_outcomes", "device_token": token,
+                "environment": environment == "development" ? "sandbox" : "production"
+            ])
+            _ = try? await Integration(original).request([
                 "action": "push_register", "device_token": token,
                 "environment": environment == "development" ? "sandbox" : "production"
             ])
@@ -47,6 +51,14 @@ import FanControlCore
 
     func didReceiveRemoteNotification(_ userInfo: [AnyHashable: Any],
                                       fetchCompletionHandler completionHandler: @escaping (WKBackgroundFetchResult) -> Void) {
+        if let hint = userInfo["fancontrol"] as? [String: Any], let id = hint["operation_id"] as? String, UUID(uuidString: id) != nil {
+            // Push data is a hint. Only the authenticated operation result changes receipt state.
+            Task {
+                await CommandDelivery.shared.reconcile(id)
+                completionHandler(.newData)
+            }
+            return
+        }
         guard let hint = userInfo["fancontrol"] as? [String: Any], hint["refresh"] as? Bool == true else {
             completionHandler(.noData); return
         }

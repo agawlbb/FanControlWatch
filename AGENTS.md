@@ -41,7 +41,7 @@ in the HA repository's `COMMAND-OPERATIONS.md`.
   Reopening reconciles the saved operation. Only explicit cancellation, a newer
   conflicting intent, revocation/target invalidation or expiry may stop it.
 - Keep queue acceptance, dispatch acknowledgment and confirmed outcome distinct.
-  Project the requested outcome immediately in gray; confirm state outcomes only with matching authenticated evidence for this operation and target. Action-button teal Activated instead acknowledges authenticated HA ownership. Never put projected state
+  Project the requested outcome immediately in gray. For EVERY command control, teal requested ON/OFF, speed, cover state or Activated means authenticated HA ownership of this exact operation and target, not physical completion. Never put projected state
   in the observed cache. Scripts/scenes/horn/music receipts do not prove physical
   completion or playback. Stale callbacks must not change a newer request.
 - Declare whether each new command is a retryable desired state or an at-most-once
@@ -71,7 +71,7 @@ capabilities and version compatibility before introducing a dependent app action
 
 The iPhone owns routine APNs/background refresh and visible-phone polling. The
 watch renders persisted snapshots and asks the phone once on visible entry; do
-not add watch background polling or a foreground refresh loop. Phone/background
+not add routine watch background polling or an unbounded foreground refresh loop. Bounded visible-entry wake/readiness confirmation is required. Phone/background
 reads never wake vehicles. Direct watch commands remain independent of the phone. Save every absolute intent
 in the keychain outbox and schedule its background upload before monitoring.
 HA owns durable execution after acceptance, across watch navigation/inactivity and
@@ -92,15 +92,14 @@ Immediately project the requested absolute outcome in gray on the originating
 control. Never store projection as observed state. Gray toggles remain tappable:
 an opposite absolute intent supersedes earlier UI work. Preserve the one-second
 fan-speed quiet window on HA; the watch hands off each revised draft immediately. Stale responses cannot recolor another request or target.
-Matching available HA observations can confirm toggles, fan speed and covers in
-teal. Unknown, unavailable, mismatched, timed-out and ambiguous results stay gray.
+Authenticated HA ownership turns every requested command control teal immediately, including Climate. Execution/conflicting-control protection remains pending independently of color. Terminal failed/unconfirmed/cancelled results turn it gray. Observed state and its freshness are tracked separately; unknown observations are never confirmed.
 Garage/trunk initial CLOSED is only a gray assumption; its first tap is absolute
 OPEN. Dispatch cover/script/scene/music requests at most once per tap.
 
 Command feedback uses color on the existing control, without separate status
 messages such as Requested, Waiting for Home Assistant, Request accepted or Not
 confirmed. Action buttons intentionally change to Activated after a tap; retain that behavior. Do not use REQUESTED as a generic replacement. State controls immediately show the requested ON/OFF, OPEN/CLOSED
-or speed in gray; only matching evidence promotes their color. Failures stay gray.
+or speed in gray; authenticated ownership promotes their color to teal before physical completion. Failures stay gray.
 Setup, pairing and audio-route guidance are separate from command feedback.
 
 Leave for Work, Horn, Start/Stop Exercise and Podcast show gray Activated after a tap. Teal Activated means an authenticated response matching this operation confirms HA has received the command and owns ensuring completion. Active operation statuses acknowledge that handoff before dispatch/completion. It does not prove physical completion or playback. Keep monitoring and conflict protection independent of the receipt color; terminal failures remain gray. Resetting session presentation on
@@ -123,3 +122,24 @@ failure/cancellation and stale callbacks across exposed surfaces. Run appropriat
 core tests; simulator/signing builds require their own authorization. Report exact
 source and remaining paired-device checks. Automated checks do not establish real
 watch rendering, APNs delivery, playback or vehicle behavior.
+
+## Entry, outcome notifications and timing
+
+Vehicle panels perform one scoped, bounded wake/readiness refresh on visible settled
+entry. Passive snapshots cannot cancel that coordinator or initiate an offscreen
+wake. Cold/unconfirmed climate presentation assumes OFF in gray, making its first
+tap an absolute ON intent; never toggle from stale cached ON. Once tapped, preserve
+the captured absolute intent through leaving, retries and configuration refreshes.
+Foreground and background authenticated receipts update the same visible control;
+reopening reconciles the latest keychain receipt before another network read.
+
+User-command terminal failures use HA-owned APNs to a dedicated watch destination;
+phone snapshot registration cannot replace it. No failure alert for ordinary wake
+or pending delays. A bounded local not-confirmed fallback covers missing HA
+acknowledgment; cancel it when HA ownership is received. Entry-only wake failures
+are diagnostic, not extra user-command alerts. Notification permission, relay
+availability and OS delivery remain prerequisites; APNs acceptance is not receipt.
+Keep all timing diagnostics bounded and correlated by operation ID. Record tap,
+submission, acknowledgment received/displayed and entry wake/state-display timing;
+never log credentials, tokens, URL contents or full request bodies. Preserve these
+rules and meaningful lifecycle/notification regression coverage for future controls.

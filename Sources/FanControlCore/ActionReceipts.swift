@@ -9,7 +9,7 @@ public struct ActionReceipts {
         feedback.map { $0.phase != .accepted } ?? false
     }
     public static func applies(_ command: String) -> Bool {
-        ["leave", "honk", "podcast", "start_exercise", "stop_exercise"].contains(command)
+        ["activate", "leave", "honk", "podcast", "start_exercise", "stop_exercise"].contains(command)
     }
     // Authenticated operation responses acknowledge HA ownership, not completion.
     // The caller must first match the captured operation ID and current target.

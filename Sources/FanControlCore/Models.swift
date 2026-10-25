@@ -86,7 +86,7 @@ public struct Feedback: Equatable, Sendable {
     public init(target: String, command: String, label: String) {
         id = UUID(); self.target = target; self.command = command; self.label = label; phase = .pending
     }
-    public var gray: Bool { phase != .confirmed }
+    public var gray: Bool { phase != .confirmed && phase != .accepted }
 }
 public enum Evidence {
     public static let percentages = [16, 33, 50, 66, 83, 100]

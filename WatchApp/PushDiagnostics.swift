@@ -28,6 +28,7 @@ import FanControlCore
 struct PushDiagnosticsView: View {
     let connection: Connection?
     @State private var events: [PushTraceEvent] = []
+    @State private var commands: [String] = []
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
@@ -38,6 +39,10 @@ struct PushDiagnosticsView: View {
                         if let connection { await PushDiagnostics.flush(connection) }
                         events = PushDiagnostics.shared.history(connection)
                     }
+                }
+                if !commands.isEmpty {
+                    Text("Command timings").font(.headline)
+                    ForEach(Array(commands.enumerated()), id: \.offset) { item in Text(item.element).font(.caption2) }
                 }
                 ForEach(events.reversed()) { event in
                     VStack(alignment: .leading) {
@@ -51,6 +56,6 @@ struct PushDiagnosticsView: View {
                     Divider()
                 }
             }
-        }.onAppear { events = PushDiagnostics.shared.history(connection) }
+        }.onAppear { events = PushDiagnostics.shared.history(connection); commands = CommandDelivery.shared.diagnostics() }
     }
 }
