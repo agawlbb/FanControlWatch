@@ -1,5 +1,8 @@
 # Fan Control for iPhone and Apple Watch
 
+**Unreleased source:** 0.9.0 (18) command-feedback, vehicle-entry and watch-alert
+corrections. These are not in TestFlight. See [the implementation record](UNRELEASED-CORRECTIONS.md).
+
 Independent watchOS 10+ SwiftUI client for the [Fan Control HA integration](https://github.com/agawlbb/FanControlHA), ported from [Android 1.5.3](https://github.com/agawlbb/FanControl/tree/841587d42c391afaac4df77621c7428dd250b2c9).
 
 ## iPhone companion — 0.6.0 (15)

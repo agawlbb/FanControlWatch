@@ -6,8 +6,9 @@ Published to the existing **Internal** TestFlight group. Apple build
 submission or App Store release were created.
 
 Signed source: `aff112a6b1b2a5ed7e2017e83495b4efccd9fa73`.
-Phone, watch and complication all report 0.8.0 (17). Later commits are release
-records only. HA 0.9.0 is deployed and loaded; both existing pairings are preserved.
+Phone, watch and complication all report 0.8.0 (17). The released binary remains pinned to that source.
+Newer unshipped work is documented in [UNRELEASED-CORRECTIONS.md](UNRELEASED-CORRECTIONS.md).
+HA 0.9.0 was deployed and loaded; both existing pairings were preserved.
 
 ## Changes
 

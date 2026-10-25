@@ -19,7 +19,7 @@ import FanControlCore
             content.sound = .default
             content.userInfo = ["operation_id": id]
             try? await center.add(UNNotificationRequest(identifier: "command-" + id, content: content,
-                trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, deadline.timeIntervalSinceNow), repeats: false)))
+                trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, deadline.addingTimeInterval(30).timeIntervalSinceNow), repeats: false)))
             if generations[id] != ticket { center.removePendingNotificationRequests(withIdentifiers: ["command-" + id]) }
         }
     }
