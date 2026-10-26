@@ -89,6 +89,7 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
     }
     func recover() {
         _ = session
+        Task { await CommandAlerts.shared.recover() }
         session.getAllTasks { tasks in
             let active = Set(tasks.compactMap { $0.taskDescription?.components(separatedBy: "|").first })
             Task { @MainActor in
@@ -111,6 +112,7 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
         NotificationCenter.default.post(name: .commandOutcomeSaved, object: id)
     }
     func record(_ id: String) -> Entry? { entries[id] }
+    func alertRecords() -> [Entry] { Array(entries.values) }
     func reconcile(_ id: String) async {
         guard let entry = entries[id], let current = Vault.load(), current.watch_id == entry.connection.watch_id,
               current.token == entry.connection.token else { return }

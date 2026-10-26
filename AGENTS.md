@@ -146,6 +146,13 @@ or pending delays. A bounded local not-confirmed fallback covers missing HA
 acknowledgment; cancel it when HA ownership is received. Entry-only wake failures
 are diagnostic, not extra user-command alerts. Notification permission, relay
 availability and OS delivery remain prerequisites; APNs acceptance is not receipt.
+On recovery, reconcile pending/delivered local alerts against the current outbox,
+pairing, target roles, acknowledgment and original issue time. Never replay an
+overdue timer or notify from an orphaned/obsolete callback. Local alert relevance
+is bounded to five minutes from the original tap; native timers still target
+195 seconds plus 30 seconds of transport grace. Deduplicate local fallback and
+terminal alerts, recheck relevance after asynchronous permission/notification work,
+and remove obsolete legacy Exercise timers. Entry reads/wakes never create alerts.
 Keep all timing diagnostics bounded and correlated by operation ID. Record tap,
 submission, acknowledgment received/displayed and entry wake/state-display timing;
 never log credentials, tokens, URL contents or full request bodies. Preserve these
