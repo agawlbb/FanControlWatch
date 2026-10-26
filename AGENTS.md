@@ -71,7 +71,14 @@ capabilities and version compatibility before introducing a dependent app action
 
 The iPhone owns routine APNs/background refresh and visible-phone polling. The
 watch renders persisted snapshots and asks the phone once on visible entry; do
-not add routine watch background polling or an unbounded foreground refresh loop. Bounded visible-entry wake/readiness confirmation is required. Phone/background
+not add routine watch background polling or an unbounded foreground refresh loop.
+Every displayed nonvehicle control also performs one bounded authenticated HA state
+read on entry, without requiring a phone or command tap. Available ON/OFF and speed
+observations may turn teal; unknown/unavailable data and saved snapshots stay gray.
+Keep this separate from command acknowledgment and vehicle report-age checks.
+Vehicle changes must preserve this opening-screen behavior for fans, lights,
+switches, booleans and nonvehicle panels. Cover opening without issuing a command
+when validating refresh changes. Bounded visible-entry wake/readiness confirmation is required. Phone/background
 reads never wake vehicles. Direct watch commands remain independent of the phone. Save every absolute intent
 in the keychain outbox and schedule its background upload before monitoring.
 HA owns durable execution after acceptance, across watch navigation/inactivity and

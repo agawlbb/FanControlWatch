@@ -4,6 +4,15 @@
 command outcome relay. See [release evidence](RELEASE.md) and
 [the implementation record](UNRELEASED-CORRECTIONS.md).
 
+Unreleased source correction: opening a nonvehicle control now makes one bounded,
+authenticated HA state read so available fan power/speed and other device states
+can turn teal without a command tap or phone. Vehicle entry and command delivery
+remain separate. This correction has not been built or published.
+Seven regression cases cover entry reads, other nonvehicle devices, fan panels,
+vehicle isolation, unavailable state, failed reads and cancellation. They are
+added but not executed: this change was requested without a build. Static diff
+checks passed; Swift compilation and physical-watch validation remain pending.
+
 Independent watchOS 10+ SwiftUI client for the [Fan Control HA integration](https://github.com/agawlbb/FanControlHA), ported from [Android 1.5.3](https://github.com/agawlbb/FanControl/tree/841587d42c391afaac4df77621c7428dd250b2c9).
 
 ## iPhone companion — 0.6.0 (15)

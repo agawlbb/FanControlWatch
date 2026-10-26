@@ -96,9 +96,29 @@ import FanControlCore
             if let deadline = wakeAfter {
                 do { try await Task.sleep(until: deadline, clock: .continuous) } catch { return }
             }
-            guard !Task.isCancelled, ticket == generation, visible, allowEntryWake,
-                  let d = device, let p = d.panel, p.vehicle else { return }
+            guard !Task.isCancelled, ticket == generation, visible, let d = device else { return }
             let client = Integration(connection)
+            if d.panel?.vehicle != true {
+                // Refresh the displayed nonvehicle target once, even without a phone
+                // or a command tap. A passive cache alone is never fresh evidence.
+                guard feedback == nil, speedDraft == nil else { return }
+                do {
+                    guard let state = try await VisibleStateRefresh.read(d, using: { try await client.request($0) }),
+                          !Task.isCancelled, ticket == generation, visible,
+                          let current = self.connection, current.watch_id == connection.watch_id, current.token == connection.token,
+                          device?.sameCommandTarget(as: d) == true, feedback == nil, speedDraft == nil else { return }
+                    stateFresh = VisibleStateRefresh.available(state, for: d)
+                    if stateFresh {
+                        observed = state
+                        ObservationCache.shared.save(state, connection: current, device: d)
+                    }
+                } catch {
+                    // Keep the saved observation gray. Never affect a later command
+                    // or another screen, and never turn this read into a retry loop.
+                }
+                return
+            }
+            guard allowEntryWake, let p = d.panel, p.vehicle else { return }
             let id = entryID
             let issued = Int(Date().timeIntervalSince1970 * 1000)
             CommandDelivery.shared.trace(id, "entry_displayed_settled")
@@ -153,10 +173,6 @@ import FanControlCore
         if p.type == "exercise" { body["music_mode"] = "local" }
         if let command { body["command"] = command; body["panel_config"] = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) }
         return body
-    }
-    private func stateBody(_ d: Device) -> [String: Any] {
-        if let p = d.panel { return panelBody(p) }
-        return ["action": "state", "entity": d.entity]
     }
     func actionFeedback(_ action: String) -> Feedback? {
         guard let c = connection, let d = device else { return nil }
