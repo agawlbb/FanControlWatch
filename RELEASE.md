@@ -1,3 +1,61 @@
+# Fan refresh and local alert safeguards - 0.9.1 (19), October 25, 2026
+
+Published to the existing **Internal** TestFlight group. Apple build
+`0adcd073-353c-49d5-89ad-1b4bdca0c20f` is `VALID`, not expired and
+`IN_BETA_TESTING`, with no non-exempt encryption. No external testers, review
+submission or App Store release were created.
+
+Signed source: `845d408a95d5236ef028b4608d57016560e24670`.
+Phone, watch and complication all report 0.9.1 (19). Later documentation changes
+do not alter that signed source. HA 0.10.0 and its relay remain unchanged.
+
+## Changes
+
+- Restore one bounded authenticated state read when a nonvehicle control becomes
+  visible, without a phone or command tap. Available fan power/speed and other
+  device states can turn teal. Saved/unknown/unavailable state stays gray.
+  Late entry responses cannot replace a later command, pairing or target.
+- The regression originated in the earlier companion-refresh change `ff56000`,
+  which removed nonvehicle direct reads; vehicle entry work retained that gap.
+  Vehicle wake/readiness and shared command delivery remain separate.
+- Reconcile OS-owned local notification timers against current saved commands,
+  pairing, target roles, acknowledgment and original issue time after relaunch.
+  Remove orphaned/obsolete timers and legacy Exercise alerts. Never recreate an
+  overdue timer or replay historical terminal failures. Local notification
+  relevance ends five minutes after the original tap; the fallback's original
+  trigger remains 195 seconds plus 30 seconds of transport grace.
+- Suppress stale callbacks and duplicate local fallback/terminal alerts. Recheck
+  after asynchronous permission/notification work so a newly received HA
+  acknowledgment cancels older alert work. Recovery may read command status;
+  it does not submit a command or wake a vehicle.
+- Add bounded correlated alert scheduling, presentation, suppression and recovery
+  events to existing diagnostics. Ordinary controls have no added status text.
+  The exact source of the reported unsolicited alerts was not proven; these
+  changes close concrete stale-timer/callback paths found during investigation.
+
+## Validation and evidence
+
+63 Swift regression tests and unsigned iPhone/watch simulator builds passed:
+https://github.com/agawlbb/FanControlWatch/actions/runs/40261522318
+
+The signed release repeated 63 tests and passed archive/export, deep signature
+verification, production APNs entitlements, three bundle/version checks, upload,
+Apple processing and existing Internal group access:
+https://github.com/agawlbb/coffey-table-recipes/actions/runs/40261830834
+
+IPA SHA256: `2e7d14319de38c467e9eec45dd931e842cefa0d2cfc9a1da67eb5f1deac5adce`.
+Signed IPA, processing record, logs and verified branch recovery are preserved
+under `build/alerts019/`. The isolated temporary signing branch was retired using
+its exact-head lease; CTR main's independent owner changes were preserved.
+
+Remaining physical checks: open the bedroom fan without issuing a command, with
+and without the phone; unavailable fan; switch targets during a delayed read;
+relaunch with acknowledged/expired timers; real notification permission, deferred
+watchOS delivery and immediate navigation/wrist-down after commands. Automated
+checks do not establish paired-watch rendering or actual notification delivery.
+
+---
+
 # Command feedback and reliability release - 0.9.0 (18), October 25, 2026
 
 Published to the existing **Internal** TestFlight group. Apple build
