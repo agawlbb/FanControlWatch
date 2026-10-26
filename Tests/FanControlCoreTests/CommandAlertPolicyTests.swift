@@ -62,4 +62,13 @@ final class CommandAlertPolicyTests: XCTestCase {
             XCTAssertFalse(CommandAlertPolicy.localOutcome(entry, state: ["operation_id": "one", "operation_status": status], current: c, now: now))
         }
     }
+    func testAcknowledgmentArrivingDuringAlertPermissionWaitSuppressesOldFailure() throws {
+        var entry = try record()
+        let failure: [String: Any] = ["operation_id": "one", "operation_status": "unconfirmed"]
+        XCTAssertTrue(CommandAlertPolicy.localOutcome(entry, state: failure, current: try connection(), now: now))
+        for status in ["pending", "confirming", "complete", "accepted", "cancelled"] {
+            entry.result = try JSONSerialization.data(withJSONObject: ["operation_id": "one", "operation_status": status])
+            XCTAssertFalse(CommandAlertPolicy.localOutcome(entry, state: failure, current: try connection(), now: now))
+        }
+    }
 }

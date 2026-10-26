@@ -53,7 +53,13 @@ import FanControlCore
                 center.removePendingNotificationRequests(withIdentifiers: [request.identifier])
             } else if request.identifier.hasPrefix("command-") {
                 let id = String(request.identifier.dropFirst(8))
-                if !fallback(id) || record(id).map({ Date().timeIntervalSince($0.issued) >= CommandAlertPolicy.fallbackSeconds }) != false {
+                let outcome = request.content.userInfo["kind"] as? String == "outcome"
+                let validOutcome = record(id).map { entry in
+                    guard let data = entry.result, let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+                    return CommandAlertPolicy.localOutcome(entry, state: state, current: Vault.load())
+                } ?? false
+                let validFallback = fallback(id) && record(id).map({ Date().timeIntervalSince($0.issued) < CommandAlertPolicy.fallbackSeconds }) == true
+                if !(outcome ? validOutcome : validFallback) {
                     clear(id); trace(id, "alert_recovery_removed")
                 }
             }

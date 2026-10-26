@@ -25,7 +25,10 @@ public enum CommandAlertPolicy {
     }
 
     public static func localOutcome(_ record: CommandRecord, state: [String: Any], current: Connection?, now: Date = Date()) -> Bool {
-        relevant(record, current: current, now: now) && state["operation_id"] as? String == record.id &&
-        ["failed", "unconfirmed"].contains(state["operation_status"] as? String ?? "") && state["outcome_alerts"] as? Bool != true
+        if let data = record.result,
+           let latest = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           CommandPolicy.owns(latest) || latest["operation_status"] as? String == "cancelled" { return false }
+        return relevant(record, current: current, now: now) && state["operation_id"] as? String == record.id &&
+            ["failed", "unconfirmed"].contains(state["operation_status"] as? String ?? "") && state["outcome_alerts"] as? Bool != true
     }
 }
