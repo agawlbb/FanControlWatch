@@ -62,3 +62,18 @@ Action buttons initially show their normal name in teal, turn gray Activated on 
 and turn teal Activated when a matching authenticated operation response confirms
 HA ownership. This acknowledges responsibility for completion, not physical completion
 or playback. Monitoring and conflicting-command protection continue independently.
+
+# Swipe command isolation
+
+Tile navigation uses a high-priority drag gesture so a recognized swipe cancels
+the underlying button press instead of sharing the touch with an HA command.
+Entry wake/read work remains separate from the command outbox and its alerts.
+
+Paired-watch regression check: swipe starting on each state/action button and
+fan speed control, in both directions and at the first/last tile. Include short
+and diagonal drags, vertical scrolling, and the Exercise playback area. Verify
+that navigation alone creates no command tap/submission timing events, changes
+no command control to Activated, and produces no command alert after five minutes.
+Then verify deliberate taps still submit once, long press opens settings, and
+vertical scrolling still works. This check requires watchOS; core tests cannot
+establish SwiftUI gesture arbitration or notification delivery.
