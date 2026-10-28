@@ -50,7 +50,9 @@ struct ControlsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .companionSnapshotSaved)) { _ in model.receiveCompanion() }
         .onLongPressGesture { setup = true }
-        .simultaneousGesture(DragGesture(minimumDistance: 35).onEnded { value in
+        // Navigation must win over child buttons. A simultaneous drag lets the
+        // same touch also activate an HA control and schedule a delayed alert.
+        .highPriorityGesture(DragGesture(minimumDistance: 35).onEnded { value in
             guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
             model.swipe(value.translation.width < 0 ? 1 : -1)
         })
