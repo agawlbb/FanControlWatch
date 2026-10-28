@@ -52,6 +52,10 @@ matching Driving panel. Receipt colors never prove physical state or playback.
 
 ## Development and releases
 
+For instructions to run tests, build on GitHub's Mac runner, configure Apple
+signing credentials, and publish to internal TestFlight directly from this
+repository, see [GitHub builds and TestFlight setup](GITHUB-TESTFLIGHT.md).
+
 Current version: **0.9.1 (19)**; iOS 17+, watchOS 10+, HA 0.10.0. Published to the existing Internal TestFlight group.
 `swift test` runs core regression tests. XcodeGen uses `project.yml` to generate
 the iPhone, watch and complication targets. Existing GitHub workflows compile
