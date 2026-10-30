@@ -57,6 +57,7 @@ import FanControlCore
         if let connection { try? Vault.save(connection) }
         if let connection, resetSelection {
             PushDiagnostics.shared.record("opened", connection: connection)
+            Task { await CommandAlerts.shared.prepareNotifications() }
         }
         observed = connection.flatMap { c in device.map { ObservationCache.shared.load(c, $0) } } ?? [:]
         WatchCompanion.shared.requestLatest()

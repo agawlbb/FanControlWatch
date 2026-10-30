@@ -2,7 +2,7 @@ import Foundation
 import UserNotifications
 import FanControlCore
 
-// A local fallback covers missing HA ownership. Accepted work uses HA outcome APNs.
+// Short handoff failures are local. Accepted execution failures use HA outcome APNs.
 @MainActor final class CommandAlerts: NSObject, UNUserNotificationCenterDelegate {
     static let shared = CommandAlerts()
     private let center = UNUserNotificationCenter.current()
@@ -12,24 +12,13 @@ import FanControlCore
         record(id).map { CommandAlertPolicy.fallback($0, current: Vault.load()) } ?? false
     }
     private func trace(_ id: String, _ phase: String) { CommandDelivery.shared.trace(id, phase) }
-    func begin(_ id: String, deadline: Date) {
-        guard fallback(id), deadline.addingTimeInterval(30) > Date() else { return }
-        let ticket = UUID(); generations[id] = ticket
-        Task {
-            guard (try? await center.requestAuthorization(options: [.alert, .sound])) == true else { return }
-            PushNotifications.register()
-            guard generations[id] == ticket, fallback(id), deadline.addingTimeInterval(30) > Date() else { return }
-            let content = UNMutableNotificationContent()
-            content.title = "Fan Control not confirmed"
-            content.body = "The watch could not confirm that Home Assistant received your request."
-            content.sound = .default
-            content.userInfo = ["operation_id": id, "kind": "handoff"]
-            try? await center.add(UNNotificationRequest(identifier: "command-" + id, content: content,
-                trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, deadline.addingTimeInterval(30).timeIntervalSinceNow), repeats: false)))
-            if generations[id] != ticket || !fallback(id) {
-                center.removePendingNotificationRequests(withIdentifiers: ["command-" + id])
-            } else { trace(id, "alert_scheduled") }
-        }
+    func prepareNotifications() async {
+        guard let connection = Vault.load(),
+              (try? await center.requestAuthorization(options: [.alert, .sound])) == true,
+              Vault.load()?.watch_id == connection.watch_id,
+              Vault.load()?.token == connection.token else { return }
+        // Register HA's dedicated outcome route independently of command execution.
+        PushNotifications.register()
     }
     func clear(_ id: String) {
         generations.removeValue(forKey: id)
