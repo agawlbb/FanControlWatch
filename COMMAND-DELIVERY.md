@@ -33,6 +33,8 @@ Remaining checks: remote-only cellular connectivity; missing/incorrect URL; DNS/
 offline and lost-response cases; early navigation/wrist-down; action acknowledgment
 and five-second reset; new taps during an older timer; HA failure push after handoff.
 No installation, TestFlight release or HA deployment is included in this change.
+The subsequent authorized October 30 TestFlight release is 0.9.2 (21); see
+[RELEASE.md](RELEASE.md) for Apple's processing and Internal group evidence.
 
 Validation: source `47ac0d3890283c1d095ef777123aa15357513fdd` (project version
 0.9.2/build 20, no new packaged build) passed all 69 Swift core tests and watchOS
