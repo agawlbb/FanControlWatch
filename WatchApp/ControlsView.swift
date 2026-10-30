@@ -181,12 +181,36 @@ struct SetupView: View {
     @State private var address = ""
     @State private var status = "Enter your Home Assistant local or HTTPS address."
     @State private var pairing: Task<Void, Never>?
+    @State private var connectionCheck: Task<Void, Never>?
+    @State private var connectionResult = ""
     var body: some View {
         ScrollView { VStack {
             Text("Home Assistant").font(.headline)
             if model.connection != nil {
                 Text("Paired. Configure devices and panels in Home Assistant.")
                 Text("Watch ID: \(model.connection!.watch_id)").font(.caption2)
+                Text("Remote HA address").font(.headline)
+                Text(model.connection?.remote_url.flatMap { $0.isEmpty ? nil : $0 } ?? "Not configured")
+                    .font(.caption2)
+                Button(connectionCheck == nil ? "Test remote connection" : "Connecting…") {
+                    guard let c = model.connection else { return }
+                    connectionResult = ""
+                    connectionCheck = Task {
+                        let result: String
+                        do {
+                            _ = try c.remoteAddress()
+                            // Authenticated configuration read only: no wake or command.
+                            let response = try await Integration(c).request(["action": "config"])
+                            guard response["devices"] is [[String: Any]], response["entity"] is String else {
+                                throw ControlError.invalidResponse
+                            }
+                            result = "Connected to Home Assistant."
+                        } catch { result = ConnectionCheck.failureMessage(error) }
+                        guard !Task.isCancelled, model.connection?.sameTarget(as: c) == true else { return }
+                        connectionResult = result; connectionCheck = nil
+                    }
+                }.disabled(connectionCheck != nil)
+                if !connectionResult.isEmpty { Text(connectionResult).font(.caption2) }
                 Button(player.syncing ? "Syncing music…" : "Sync exercise music") {
                     if let c = model.connection { player.sync(c) }
                 }.disabled(player.syncing)
@@ -208,7 +232,7 @@ struct SetupView: View {
             }
             Link("Source · AGPL-3.0-only", destination: URL(string: "https://github.com/agawlbb/FanControlWatch")!).font(.caption2)
         } }
-        .onDisappear { pairing?.cancel() }
+        .onDisappear { pairing?.cancel(); connectionCheck?.cancel(); connectionCheck = nil }
     }
 }
 

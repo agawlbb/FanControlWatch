@@ -58,7 +58,7 @@ import FanControlCore
                     guard let data = entry.result, let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
                     return CommandAlertPolicy.localOutcome(entry, state: state, current: Vault.load())
                 } ?? false
-                let validFallback = fallback(id) && record(id).map({ Date().timeIntervalSince($0.issued) < CommandAlertPolicy.fallbackSeconds }) == true
+                let validFallback = false // Retire the previous multi-minute handoff timers.
                 if !(outcome ? validOutcome : validFallback) {
                     clear(id); trace(id, "alert_recovery_removed")
                 }
@@ -79,11 +79,7 @@ import FanControlCore
                 }
             }
         }
-        // Read-only reconciliation can cancel a missing-receipt timer when HA's
-        // acknowledgment was lost. It never submits or wakes anything.
-        for entry in CommandDelivery.shared.alertRecords() where fallback(entry.id) {
-            await CommandDelivery.shared.reconcile(entry.id)
-        }
+        // Command execution belongs to HA; recovery never polls its operations.
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         let request = notification.request

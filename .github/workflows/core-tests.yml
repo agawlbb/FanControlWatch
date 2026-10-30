@@ -1,0 +1,15 @@
+name: Core tests
+on:
+  push:
+    branches-ignore: [main]
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test
+      - name: Parse watch application sources
+        run: xcrun swiftc -frontend -parse WatchApp/*.swift

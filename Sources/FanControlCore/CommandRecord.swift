@@ -12,6 +12,10 @@ public struct CommandRecord: Codable {
     public var result: Data?
     public var timings: [String: Double]?
     public var events: [String]?
+    public func awaitingHandoff(now: Date = Date()) -> Bool {
+        let age = now.timeIntervalSince(issued)
+        return !accepted && result == nil && age >= 0 && age < Connection.handoffSeconds
+    }
     public mutating func mark(_ phase: String) {
         var times = timings ?? [:]
         if times[phase] == nil { times[phase] = Date().timeIntervalSince1970 * 1000 }

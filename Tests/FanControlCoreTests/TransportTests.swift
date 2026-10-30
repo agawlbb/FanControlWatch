@@ -58,17 +58,17 @@ final class TransportTests: XCTestCase {
         let c = try client(); var hosts = [String]()
         MockProtocol.handle = { request in hosts.append(request.url!.host!); throw URLError(.timedOut) }
         do { _ = try await c.request(["action":"command","entity":"fan.test","command":"turn_on"]); XCTFail("Expected timeout") } catch {}
-        XCTAssertEqual(hosts,["local.example"])
+        XCTAssertEqual(hosts,["remote.example"])
     }
-    func testSafeReadFallsBackButRejectionDoesNot() async throws {
+    func testReadFailureAndRejectionNeverTryLocal() async throws {
         let c = try client(); var hosts = [String]()
         MockProtocol.handle = { request in hosts.append(request.url!.host!); throw URLError(.notConnectedToInternet) }
         do { _ = try await c.request(["action":"state","entity":"fan.test"]); XCTFail("Expected failure") } catch {}
-        XCTAssertEqual(hosts,["local.example","remote.example"])
+        XCTAssertEqual(hosts,["remote.example"])
         hosts = []
         MockProtocol.handle = { request in hosts.append(request.url!.host!); return (403,Data()) }
         do { _ = try await c.request(["action":"state","entity":"fan.test"]); XCTFail("Expected rejection") } catch {}
-        XCTAssertEqual(hosts,["local.example"])
+        XCTAssertEqual(hosts,["remote.example"])
     }
     func testPanelCommandAlsoNeverReplaysOnRemote() async throws {
         let c = try client(); var count = 0
@@ -76,7 +76,7 @@ final class TransportTests: XCTestCase {
         do { _ = try await c.request(["action":"panel_command","panel_id":"driving","command":"trunk_open"]); XCTFail("Expected failure") } catch {}
         XCTAssertEqual(count,1)
     }
-    func testDurableSubmissionFallsBackWithSameOperationIDAndFreshNonce() async throws {
+    func testDurableSubmissionUsesRemoteOnceWithCapturedOperationID() async throws {
         let c = try client(); var hosts = [String](); var nonces = [String]()
         MockProtocol.handle = { request in
             hosts.append(request.url!.host!)
@@ -87,19 +87,19 @@ final class TransportTests: XCTestCase {
             let plain = try open(packet, key:key, aad:aad)
             let body = try JSONSerialization.jsonObject(with:plain) as! [String:Any]
             XCTAssertEqual(body["operation_id"] as? String, "stable-id")
-            if hosts.count == 1 { return (503, Data()) }
+
             let box = try AES.GCM.seal(JSONSerialization.data(withJSONObject:["operation_id":"stable-id", "operation_status":"pending"]),using:key,authenticating:Data((aad + ":response").utf8))
             return (200,try JSONSerialization.data(withJSONObject:["iv":Data(box.nonce).base64EncodedString(),"ciphertext":(box.ciphertext + box.tag).base64EncodedString()]))
         }
         let result = try await c.request(["action":"operation_submit", "operation_id":"stable-id", "entity":"fan.test", "command":"turn_on"])
         XCTAssertEqual(result["operation_status"] as? String,"pending")
-        XCTAssertEqual(hosts,["local.example","remote.example"])
-        XCTAssertEqual(Set(nonces).count,2)
+        XCTAssertEqual(hosts,["remote.example"])
+        XCTAssertEqual(Set(nonces).count,1)
     }
-    func testRateLimitedDurableSubmissionCanTryRemote() async throws {
+    func testRateLimitedDurableSubmissionDoesNotRetry() async throws {
         let c = try client(); var hosts = [String]()
         MockProtocol.handle = { request in hosts.append(request.url!.host!); return (429,Data()) }
         do { _ = try await c.request(["action":"operation_submit", "operation_id":"stable-id"]); XCTFail("Expected retryable error") } catch {}
-        XCTAssertEqual(hosts,["local.example","remote.example"])
+        XCTAssertEqual(hosts,["remote.example"])
     }
 }

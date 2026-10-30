@@ -122,35 +122,19 @@ import FanControlCore
             let id = entryID
             let issued = Int(Date().timeIntervalSince1970 * 1000)
             CommandDelivery.shared.trace(id, "entry_displayed_settled")
-            let deadline = Date().addingTimeInterval(105)
             var body = panelBody(p, command: "wake")
             body["action"] = "operation_submit"; body["operation_id"] = id; body["issued_at_ms"] = issued
-            var accepted = false
-            // Bounded, user-visible entry confirmation only. No routine/background polling.
-            while Date() < deadline && visible && ticket == generation && !Task.isCancelled {
-                guard let current = self.connection, current.watch_id == connection.watch_id, current.token == connection.token,
+            do {
+                let state = try await client.request(body)
+                guard state["operation_id"] as? String == id else { return }
+                CommandDelivery.shared.trace(id, "entry_ack_received")
+                guard visible, ticket == generation, !Task.isCancelled,
                       device?.sameCommandTarget(as: d) == true else { return }
-                do {
-                    let state = try await client.request(accepted ? ["action": "operation_status", "operation_id": id] : body)
-                    guard state["operation_id"] as? String == id else { throw ControlError.invalidResponse }
-                    if !accepted { CommandDelivery.shared.trace(id, "entry_ack_received") }
-                    accepted = state["operation_status"] as? String != "unknown"
-                    guard visible, ticket == generation, !Task.isCancelled, device?.sameCommandTarget(as: d) == true else { return }
-                    if state["observation_fresh"] as? Bool == true {
-                        // Never replace a command projection; this cache contains observations only.
-                        observed = state; stateFresh = true
-                        CommandDelivery.shared.trace(id, "entry_state_displayed")
-                        ObservationCache.shared.save(state, connection: current, device: d)
-                        if state["vehicle_ready"] as? Bool == true { return }
-                    }
-                    if ["failed", "cancelled", "unconfirmed"].contains(state["operation_status"] as? String ?? "") { return }
-                } catch {
-                    if Task.isCancelled { return }
-                    if case ControlError.rejected(let code) = error, code != 429 && code < 500 { return }
-                    // Retry this same scoped entry while it remains visible; do not wake after leaving.
+                if state["observation_fresh"] as? Bool == true {
+                    observed = state; stateFresh = true
+                    ObservationCache.shared.save(state, connection: connection, device: d)
                 }
-                do { try await Task.sleep(nanoseconds: 2_000_000_000) } catch { return }
-            }
+            } catch { /* Entry wake is best effort; HA owns accepted execution. */ }
         }
     }
 
@@ -205,65 +189,17 @@ import FanControlCore
         do { try CommandDelivery.shared.enqueue(body, connection: c, device: d) }
         catch {
             feedback?.phase = .unconfirmed; commandPending = false
+            if ActionReceipts.applies(f.command) { actionReceipts.finish(f, accepted: false) }
             CommandAlerts.shared.outcome(identity, state: ["operation_id": identity, "operation_status": "failed", "local_error": true])
             return
         }
         monitor(identity, body: body, connection: c, device: d, feedback: f)
     }
     private func monitor(_ identity: String, body: [String: Any], connection c: Connection, device d: Device, feedback f: Feedback) {
-        let ticket = generation
-        let client = Integration(c)
-        vehicleIntent = (client, identity, nil)
         activeIntent = (identity, c, d, f)
         commandPending = true
+        // Only listen for the upload receipt. No second submission or status polling.
         refreshCommandOutcome(identity)
-        command = Task {
-            let issued = body["issued_at_ms"] as? Int ?? 0
-            let deadline = Date(timeIntervalSince1970: Double(issued) / 1000 + VehicleOperation.alertSeconds)
-            var submitted = Date() >= deadline
-            var first = true
-            var saved = CommandDelivery.shared.pending(connection: c, device: d).flatMap { $0.id == identity ? $0.result : nil }
-            while first || Date() < deadline {
-                first = false
-                if Task.isCancelled { return }
-                do {
-                    CommandDelivery.shared.trace(identity, "foreground_request")
-                    // Submit directly. HA authenticates and validates the captured target;
-                    // preflight reads must never stand between the tap and acceptance.
-                    let state: [String: Any]
-                    if let data = saved, let result = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       ["complete", "accepted", "failed", "cancelled", "unconfirmed"].contains(result["operation_status"] as? String ?? "") {
-                        state = result
-                    } else { state = try await client.request(submitted ? ["action": "operation_status", "operation_id": identity] : body) }
-                    saved = nil
-                    guard state["operation_id"] as? String == identity else { throw ControlError.invalidResponse }
-                    let status = state["operation_status"] as? String ?? "unknown"
-                    submitted = status != "unknown"
-                    CommandDelivery.shared.outcome(identity, state: state)
-                    guard !Task.isCancelled, visible, ticket == generation, feedback?.id == f.id else { return }
-                    refreshCommandOutcome(identity)
-                    if CommandPolicy.terminal.contains(status) { return }
-                } catch {
-                    if Task.isCancelled { return }
-                    if case ControlError.rejected(let code) = error, code != 429 && code < 500 {
-                        guard ticket == generation, feedback?.id == f.id else { return }
-                        CommandDelivery.shared.rejected(identity)
-                        feedback?.phase = .unconfirmed; commandPending = false
-                        if ActionReceipts.applies(f.command) { actionReceipts.finish(f, accepted: false) }
-                        return
-                    }
-                    // Stable IDs make both endpoint fallback and retry safe.
-                }
-                do { try await Task.sleep(nanoseconds: 1_500_000_000) } catch { return }
-            }
-            guard ticket == generation, feedback?.id == f.id else { return }
-            refreshCommandOutcome(identity)
-            if let data = CommandDelivery.shared.record(identity)?.result,
-               let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               CommandPolicy.terminal.contains(state["operation_status"] as? String ?? "") { return }
-            speedDraft = nil; feedback?.phase = .unconfirmed; commandPending = false
-            if ActionReceipts.applies(f.command) { actionReceipts.finish(f, accepted: false) }
-        }
     }
     func refreshCommandOutcome(_ id: String) {
         guard visible, let intent = activeIntent, intent.id == id,
@@ -273,15 +209,34 @@ import FanControlCore
               let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               state["operation_id"] as? String == id else { return }
         let status = state["operation_status"] as? String ?? "unknown"
+        let acknowledgedAt = CommandDelivery.shared.record(id)?.timings?["ack_received"]
+            .map { Date(timeIntervalSince1970: $0 / 1000) } ?? Date()
         if CommandPolicy.owns(state) {
             if feedback?.phase != .accepted { CommandDelivery.shared.trace(id, "ack_displayed") }
             feedback?.phase = .accepted; speedDraft = nil
-            if ActionReceipts.applies(intent.feedback.command) { actionReceipts.finish(intent.feedback, accepted: true) }
+            if ActionReceipts.applies(intent.feedback.command) { actionReceipts.finish(intent.feedback, accepted: true, now: acknowledgedAt) }
         } else if ["failed", "unconfirmed", "cancelled"].contains(status) {
             feedback?.phase = .unconfirmed
             if ActionReceipts.applies(intent.feedback.command) { actionReceipts.finish(intent.feedback, accepted: false) }
         }
-        commandPending = CommandPolicy.active.contains(status)
+        // Acknowledgment ends watch responsibility, even while HA is still waking.
+        commandPending = false
+        let f = intent.feedback
+        if ActionReceipts.applies(f.command) {
+            if CommandPolicy.owns(state) {
+                Task { [weak self] in
+                    let remaining = max(0, acknowledgedAt.addingTimeInterval(ActionReceipts.acceptedSeconds).timeIntervalSinceNow)
+                    try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+                    guard let self else { return }
+                    self.actionReceipts.remove(f)
+                    if self.feedback?.id == f.id { self.feedback = nil; self.activeIntent = nil }
+                }
+            } else {
+                feedback = nil; activeIntent = nil
+            }
+        } else {
+            activeIntent = nil
+        }
         if state["observation_fresh"] as? Bool == true {
             observed = state; stateFresh = true
             ObservationCache.shared.save(state, connection: c, device: current)
@@ -291,6 +246,9 @@ import FanControlCore
         guard let entry = CommandDelivery.shared.pending(connection: c, device: d),
               let body = try? JSONSerialization.jsonObject(with: entry.body) as? [String: Any],
               let action = body["command"] as? String else { return }
+        let recentActionReceipt = entry.accepted && ActionReceipts.applies(action) &&
+            entry.timings?["ack_received"].map { Date().timeIntervalSince1970 * 1000 - $0 < ActionReceipts.acceptedSeconds * 1000 } == true
+        guard entry.awaitingHandoff() || recentActionReceipt else { return }
         let label = action.hasPrefix("garage_") ? "Garage"
             : action.hasPrefix("trunk_") ? "Trunk"
             : action.hasPrefix("speed") ? "Speed " + String(action.dropFirst(5)) : "Run"
