@@ -121,8 +121,11 @@ import FanControlCore
                   CommandAlertPolicy.localOutcome(latest, state: state, current: Vault.load()), !wasDelivered(id) else { return }
             markDelivered(id)
             let content = UNMutableNotificationContent()
-            content.title = state["operation_status"] as? String == "failed" ? "Fan Control request failed" : "Fan Control not confirmed"
-            content.body = "Home Assistant could not confirm the requested outcome."
+            let handoffFailed = state["local_error"] as? Bool == true
+            content.title = handoffFailed ? "Home Assistant handoff failed"
+                : state["operation_status"] as? String == "failed" ? "Fan Control request failed" : "Fan Control not confirmed"
+            content.body = handoffFailed ? "The watch could not confirm that Home Assistant received your request."
+                : "Home Assistant could not confirm the requested outcome."
             content.sound = .default
             content.userInfo = ["operation_id": id, "kind": "outcome"]
             try? await center.add(UNNotificationRequest(identifier: "command-" + id, content: content, trigger: nil))

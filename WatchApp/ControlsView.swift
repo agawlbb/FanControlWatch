@@ -206,8 +206,10 @@ struct SetupView: View {
                             }
                             result = "Connected to Home Assistant."
                         } catch { result = ConnectionCheck.failureMessage(error) }
-                        guard !Task.isCancelled, model.connection?.sameTarget(as: c) == true else { return }
-                        connectionResult = result; connectionCheck = nil
+                        guard !Task.isCancelled else { return }
+                        connectionCheck = nil
+                        guard model.connection?.sameTarget(as: c) == true else { return }
+                        connectionResult = result
                     }
                 }.disabled(connectionCheck != nil)
                 if !connectionResult.isEmpty { Text(connectionResult).font(.caption2) }

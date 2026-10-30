@@ -11,5 +11,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: swift test
-      - name: Parse watch application sources
-        run: xcrun swiftc -frontend -parse WatchApp/*.swift
+      - name: Typecheck watch sources without building an app
+        run: |
+          sdk=$(xcrun --sdk watchos --show-sdk-path)
+          mkdir -p "$RUNNER_TEMP/watch-typecheck"
+          xcrun swiftc -emit-module -parse-as-library -module-name FanControlCore \
+            -target arm64_32-apple-watchos10.0 -sdk "$sdk" \
+            Sources/FanControlCore/*.swift \
+            -emit-module-path "$RUNNER_TEMP/watch-typecheck/FanControlCore.swiftmodule"
+          xcrun swiftc -typecheck -parse-as-library -target arm64_32-apple-watchos10.0 \
+            -sdk "$sdk" -I "$RUNNER_TEMP/watch-typecheck" WatchApp/*.swift
