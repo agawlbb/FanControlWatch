@@ -34,6 +34,16 @@ offline and lost-response cases; early navigation/wrist-down; action acknowledgm
 and five-second reset; new taps during an older timer; HA failure push after handoff.
 No installation, TestFlight release or HA deployment is included in this change.
 
+Validation: source `47ac0d3890283c1d095ef777123aa15357513fdd` (project version
+0.9.2/build 20, no new packaged build) passed all 69 Swift core tests and watchOS
+SDK source typechecking in [Core tests run 41122623379](https://github.com/agawlbb/FanControlWatch/actions/runs/41122623379).
+Coverage includes remote-only transport and no fallback, absent/loopback remote
+configuration, ten-second handoff expiry, failure reset, five-second receipt expiry,
+duplicate acknowledgments and stale callbacks/timers across targets. Source checking
+does not verify physical-watch rendering, OS scheduling or real HA connectivity.
+Simulator/signing builds were not run. Documentation and main integration use
+`[skip ci]` to avoid the existing main-push app archive/simulator workflow.
+
 The following sections record prior behavior and historical validation.
 
 Every HA control submits an absolute intent with a stable UUID and original issued
