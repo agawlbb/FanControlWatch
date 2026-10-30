@@ -33,6 +33,23 @@ def request(path, body=None):
 apps = request('apps?' + urllib.parse.urlencode({'filter[bundleId]': 'dev.fancontrol.watch'}))['data']
 assert len(apps) == 1, 'FanControl App Store Connect app missing or ambiguous'
 app = apps[0]['id']
+if os.environ.get('CHECK_BUILD_NUMBER_ONLY') == 'true':
+    # Inspect uploaded builds before creating an archive or submitting anything.
+    path = 'builds?' + urllib.parse.urlencode({'filter[app]': app, 'limit': 200})
+    numbers = []
+    while path:
+        page = request(path)
+        numbers.extend(int(item['attributes']['version']) for item in page['data']
+                       if item['attributes']['version'].isdigit())
+        next_url = page.get('links', {}).get('next')
+        path = next_url.removeprefix('https://api.appstoreconnect.apple.com/v1/') if next_url else None
+    highest = max(numbers, default=0)
+    print('Highest uploaded build number: ' + str(highest), flush=True)
+    if int(os.environ['BUILD_NUMBER']) <= highest:
+        raise SystemExit('Choose build number ' + str(highest + 1) + ' or greater before uploading.')
+    print('Build number ' + os.environ['BUILD_NUMBER'] + ' is available.', flush=True)
+    raise SystemExit(0)
+
 deadline = time.monotonic() + 1200
 last = None
 while time.monotonic() < deadline:

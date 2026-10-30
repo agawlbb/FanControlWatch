@@ -1,3 +1,57 @@
+# Remote HA handoff and action reset - 0.9.2 (21), October 30, 2026
+
+Published to the existing **Internal** TestFlight group. Apple build
+`67ead92c-811d-4f52-aa23-7e60958e88a7` is `VALID`, not expired and
+`IN_BETA_TESTING`, with no non-exempt encryption. No external testers, beta
+review submission or App Store release were created.
+
+Signed source: `717ab49ada4212fb0633243fa29a7086cab433c0`.
+The release task starts from canonical `main` commit
+`1f88b87f024f6d00f8b1a2448870fe3c17c79fae`. The signed iPhone, watch and
+complication package uses version 0.9.2, build 21. Later documentation and the
+project's default build-number update do not change the signed application code;
+the release workflow explicitly supplied build 21 during archive/export.
+
+## Changes
+
+- Use the saved remote HTTPS HA address exclusively, with no hardcoded domain
+  or local fallback. Require remote HTTPS for initial watch pairing too.
+- Long-press a FanControl page to see the saved remote address on the existing
+  connection screen and run an authenticated read-only remote connection test.
+- End the watch's command handoff after ten seconds or an earlier response.
+  Send once; do not retry, replay on reopening, or poll execution after HA
+  acknowledges ownership. HA retains execution, wake, retries and failure alerts.
+- Action buttons show gray Activated during handoff, restore their command name
+  on failure, and show teal Activated for five seconds after acknowledgment before
+  restoring the normal appearance. Stale callbacks/timers cannot clear newer taps.
+- Register HA failure notifications independently on watch entry. Retire the
+  previous multi-minute local handoff timers.
+- Check Apple's uploaded build numbers before archiving. The check found build
+  20 already uploaded and stopped before building; build 21 was verified unused.
+
+## Validation and evidence
+
+The signed release passed all 69 Swift core tests, signed archive/export, deep
+signature verification, production APNs entitlement checks, all three bundle/build
+metadata checks, upload, Apple processing and existing internal-group assignment:
+https://github.com/agawlbb/FanControlWatch/actions/runs/41124053197
+
+The application source also passed watchOS SDK typechecking:
+https://github.com/agawlbb/FanControlWatch/actions/runs/41122623379
+
+Apple processing evidence is preserved locally in
+`build/remote-ha-021/testflight-processing.json` and in the release run's
+`FanControlWatch-TestFlight-processing` artifact. Signing material remains outside
+Git. HA and relay deployment were not required for this release.
+
+Remaining physical checks: install build 21 on phone/watch, long-press to confirm
+and test the actual saved remote URL, test disconnected-phone/cellular access,
+network failure timing, navigation/wrist-down during handoff, five-second button
+reset and a newer tap while an old timer exists, and HA failure-notification
+receipt. Automated checks do not establish physical connectivity, watchOS
+scheduling, actual device rendering, notification delivery or vehicle behavior.
+
+---
 # Fan refresh and local alert safeguards - 0.9.1 (19), October 25, 2026
 
 Published to the existing **Internal** TestFlight group. Apple build
