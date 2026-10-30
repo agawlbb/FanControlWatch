@@ -179,7 +179,7 @@ struct SetupView: View {
     @ObservedObject private var player = ExercisePlayer.shared
     @Environment(\.dismiss) private var dismiss
     @State private var address = ""
-    @State private var status = "Enter your Home Assistant local or HTTPS address."
+    @State private var status = "Enter your Home Assistant remote HTTPS address."
     @State private var pairing: Task<Void, Never>?
     @State private var connectionCheck: Task<Void, Never>?
     @State private var connectionResult = ""

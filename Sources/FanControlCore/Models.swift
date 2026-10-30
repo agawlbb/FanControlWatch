@@ -30,7 +30,10 @@ public struct Panel: Codable, Equatable, Sendable {
 public struct Connection: Codable, Equatable, Sendable {
     public static let handoffSeconds: TimeInterval = 10
     public func remoteAddress() throws -> URL {
-        guard let remote = remote_url, !remote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        try Self.remoteAddress(remote_url)
+    }
+    public static func remoteAddress(_ raw: String?) throws -> URL {
+        guard let remote = raw, !remote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ControlError.invalidConfiguration
         }
         let address = try Self.address(remote, external: true)

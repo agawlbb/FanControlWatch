@@ -237,6 +237,8 @@ import FanControlCore
         } else {
             activeIntent = nil
         }
+        // Subsequent HA execution/failure events must not restart receipt UI.
+        activeIntent = nil
         if state["observation_fresh"] as? Bool == true {
             observed = state; stateFresh = true
             ObservationCache.shared.save(state, connection: c, device: current)
