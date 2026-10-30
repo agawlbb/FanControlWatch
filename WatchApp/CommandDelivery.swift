@@ -19,8 +19,8 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
         let config = URLSessionConfiguration.background(withIdentifier: Self.sessionID)
         config.sessionSendsLaunchEvents = true
         config.isDiscretionary = false
-        config.timeoutIntervalForRequest = 10
-        config.timeoutIntervalForResource = 180
+        config.timeoutIntervalForRequest = Connection.handoffSeconds
+        config.timeoutIntervalForResource = Connection.handoffSeconds
         return URLSession(configuration: config, delegate: self, delegateQueue: .main)
     }()
     override init() {
@@ -59,27 +59,35 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
         entries[id]?.mark("saved")
         do { try save() } catch { entries = previous; throw error }
         for id in replaced { CommandAlerts.shared.clear(id) }
-        CommandAlerts.shared.begin(id, deadline: Date(timeIntervalSince1970: Double(issued) / 1000 + VehicleOperation.alertSeconds))
-        try? upload(id, remote: false)
+        // Only the background upload submits. UI lifetime never owns delivery.
+        do { try upload(id) } catch { rejected(id) }
+        expireAfterHandoff(id)
     }
-    private func upload(_ id: String, remote: Bool, delay: TimeInterval = 0) throws {
-        guard let entry = entries[id], !entry.accepted, Date().timeIntervalSince(entry.issued) < 180,
+    private func upload(_ id: String) throws {
+        guard let entry = entries[id], entry.awaitingHandoff(),
               let current = Vault.load(), current.watch_id == entry.connection.watch_id, current.token == entry.connection.token,
               let body = try JSONSerialization.jsonObject(with: entry.body) as? [String: Any] else { return }
-        entries[id]?.mark(remote ? "remote_upload" : "local_upload")
+        entries[id]?.mark("remote_upload")
         try? save()
-        logger.info("operation=\(id, privacy: .public) upload=\(remote ? "remote" : "local", privacy: .public)")
+        logger.info("operation=\(id, privacy: .public) upload=remote")
         let packet = try CommandEnvelope.prepare(body, connection: entry.connection)
-        let address = remote ? (entry.connection.remote_url ?? entry.connection.url) : entry.connection.url
-        var request = URLRequest(url: try Connection.address(address).appendingPathComponent("api/fan_control/watch/request"))
+        var request = URLRequest(url: try entry.connection.remoteAddress().appendingPathComponent("api/fan_control/watch/request"))
+        request.timeoutInterval = max(0.1, Connection.handoffSeconds - Date().timeIntervalSince(entry.issued))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("command-" + UUID().uuidString)
         try JSONSerialization.data(withJSONObject: packet.packet).write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         let task = session.uploadTask(with: request, fromFile: file)
-        task.taskDescription = [id, packet.aad, remote ? "remote" : "local", file.path].joined(separator: "|")
-        if delay > 0 { task.earliestBeginDate = Date().addingTimeInterval(delay) }
+        task.taskDescription = [id, packet.aad, "remote", file.path].joined(separator: "|")
         task.resume()
+    }
+    private func expireAfterHandoff(_ id: String) {
+        guard let entry = entries[id], !entry.accepted, entry.result == nil else { return }
+        let remaining = max(0, Connection.handoffSeconds - Date().timeIntervalSince(entry.issued))
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+            self?.rejected(id)
+        }
     }
     func clear() {
         for id in entries.keys { CommandAlerts.shared.clear(id) }
@@ -93,8 +101,22 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
         session.getAllTasks { tasks in
             let active = Set(tasks.compactMap { $0.taskDescription?.components(separatedBy: "|").first })
             Task { @MainActor in
-                for entry in self.entries.values where !entry.accepted && !active.contains(entry.id) {
-                    try? self.upload(entry.id, remote: false)
+                for task in tasks {
+                    let parts = (task.taskDescription ?? "").components(separatedBy: "|")
+                    guard let id = parts.first, let entry = self.entries[id],
+                          entry.awaitingHandoff(), parts.count == 4, parts[2] == "remote",
+                          task.originalRequest?.url == (try? entry.connection.remoteAddress().appendingPathComponent("api/fan_control/watch/request")) else {
+                        task.cancel(); continue
+                    }
+                }
+                for entry in self.entries.values where !entry.accepted && entry.result == nil {
+                    if Date().timeIntervalSince(entry.issued) >= Connection.handoffSeconds {
+                        self.rejected(entry.id)
+                    } else {
+                        // Never resubmit an ambiguously delivered command on reopening.
+                        if !active.contains(entry.id) { self.rejected(entry.id) }
+                        else { self.expireAfterHandoff(entry.id) }
+                    }
                 }
             }
         }
@@ -102,8 +124,8 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
     func outcome(_ id: String, state: [String: Any]) {
         guard var entry = entries[id], state["operation_id"] as? String == id else { return }
         guard CommandPolicy.accept(state, id: id, previous: entry.result) else { return }
-        entry.accepted = true
-        entry.mark("ack_received")
+        entry.accepted = CommandPolicy.owns(state)
+        entry.mark(entry.accepted ? "ack_received" : "handoff_failed")
         entry.result = try? JSONSerialization.data(withJSONObject: state)
         entries[id] = entry
         try? save()
@@ -121,7 +143,7 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
         }
     }
     func rejected(_ id: String) {
-        guard entries[id]?.accepted == false else { return }
+        guard entries[id]?.accepted == false, entries[id]?.result == nil else { return }
         outcome(id, state: ["operation_id": id, "operation_status": "failed", "reason": "Request rejected", "local_error": true])
         session.getAllTasks { tasks in
             for task in tasks where task.taskDescription?.components(separatedBy: "|").first == id { task.cancel() }
@@ -149,14 +171,15 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
             guard let entry = self.entries[parts[0]] else { return }
             let code = (task.response as? HTTPURLResponse)?.statusCode ?? 0
             if error == nil, (200..<300).contains(code), let result = try? CommandEnvelope.response(data, connection: entry.connection, aad: parts[1]) {
-                self.outcome(entry.id, state: result)
+                // A late response cannot revive expired handoff presentation.
+                if entry.awaitingHandoff() {
+                    self.outcome(entry.id, state: result)
+                    if !CommandPolicy.owns(result), self.entries[entry.id]?.result == nil { self.rejected(entry.id) }
+                }
             } else if code >= 400 && code < 500 && code != 429 {
                 self.rejected(entry.id)
             } else {
-                let count = (self.entries[entry.id]?.retries ?? 0) + 1
-                self.entries[entry.id]?.retries = count
-                try? self.save()
-                try? self.upload(entry.id, remote: true, delay: parts[2] == "local" ? 0 : min(15, Double(count * 2)))
+                self.rejected(entry.id)
             }
         }
     }

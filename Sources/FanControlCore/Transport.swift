@@ -8,7 +8,9 @@ private final class RedirectPolicy: NSObject, URLSessionTaskDelegate, @unchecked
 public final class HTTP: @unchecked Sendable {
     private let session: URLSession
     public init(configuration: URLSessionConfiguration = .ephemeral) {
-        configuration.timeoutIntervalForRequest = 6; configuration.timeoutIntervalForResource = 6
+        configuration.timeoutIntervalForRequest = Connection.handoffSeconds
+        configuration.timeoutIntervalForResource = Connection.handoffSeconds
+        configuration.waitsForConnectivity = false
         configuration.urlCache = nil; configuration.httpCookieStorage = nil
         session = URLSession(configuration: configuration, delegate: RedirectPolicy(), delegateQueue: nil)
     }
@@ -30,17 +32,9 @@ public final class HTTP: @unchecked Sendable {
 public actor Integration {
     private let http: HTTP
     public let connection: Connection
-    private var endpoint: String
-    public init(_ connection: Connection, http: HTTP = HTTP()) { self.connection = connection; self.http = http; endpoint = connection.url }
+    public init(_ connection: Connection, http: HTTP = HTTP()) { self.connection = connection; self.http = http }
     public func request(_ body: [String: Any]) async throws -> [String: Any] {
-        do { return try await exchange(body, endpoint) }
-        catch {
-            try Task.checkCancellation()
-            if case ControlError.rejected(let status) = error, status != 429 && status < 500 { throw error }
-            guard !["command", "panel_command"].contains(body["action"] as? String ?? ""), let remote = connection.remote_url, !remote.isEmpty, remote != connection.url else { throw error }
-            let fallback = endpoint == remote ? connection.url : remote
-            let result = try await exchange(body, fallback); endpoint = fallback; return result
-        }
+        try await exchange(body, connection.remoteAddress().absoluteString)
     }
     private func exchange(_ body: [String: Any], _ address: String) async throws -> [String: Any] {
         let prepared = try CommandEnvelope.prepare(body, connection: connection)

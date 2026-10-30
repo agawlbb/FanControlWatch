@@ -2,7 +2,7 @@ import Foundation
 import UserNotifications
 import FanControlCore
 
-// A local fallback covers missing HA ownership. Accepted work uses HA outcome APNs.
+// Short handoff failures are local. Accepted execution failures use HA outcome APNs.
 @MainActor final class CommandAlerts: NSObject, UNUserNotificationCenterDelegate {
     static let shared = CommandAlerts()
     private let center = UNUserNotificationCenter.current()
@@ -12,24 +12,13 @@ import FanControlCore
         record(id).map { CommandAlertPolicy.fallback($0, current: Vault.load()) } ?? false
     }
     private func trace(_ id: String, _ phase: String) { CommandDelivery.shared.trace(id, phase) }
-    func begin(_ id: String, deadline: Date) {
-        guard fallback(id), deadline.addingTimeInterval(30) > Date() else { return }
-        let ticket = UUID(); generations[id] = ticket
-        Task {
-            guard (try? await center.requestAuthorization(options: [.alert, .sound])) == true else { return }
-            PushNotifications.register()
-            guard generations[id] == ticket, fallback(id), deadline.addingTimeInterval(30) > Date() else { return }
-            let content = UNMutableNotificationContent()
-            content.title = "Fan Control not confirmed"
-            content.body = "The watch could not confirm that Home Assistant received your request."
-            content.sound = .default
-            content.userInfo = ["operation_id": id, "kind": "handoff"]
-            try? await center.add(UNNotificationRequest(identifier: "command-" + id, content: content,
-                trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, deadline.addingTimeInterval(30).timeIntervalSinceNow), repeats: false)))
-            if generations[id] != ticket || !fallback(id) {
-                center.removePendingNotificationRequests(withIdentifiers: ["command-" + id])
-            } else { trace(id, "alert_scheduled") }
-        }
+    func prepareNotifications() async {
+        guard let connection = Vault.load(),
+              (try? await center.requestAuthorization(options: [.alert, .sound])) == true,
+              Vault.load()?.watch_id == connection.watch_id,
+              Vault.load()?.token == connection.token else { return }
+        // Register HA's dedicated outcome route independently of command execution.
+        PushNotifications.register()
     }
     func clear(_ id: String) {
         generations.removeValue(forKey: id)
@@ -58,7 +47,7 @@ import FanControlCore
                     guard let data = entry.result, let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
                     return CommandAlertPolicy.localOutcome(entry, state: state, current: Vault.load())
                 } ?? false
-                let validFallback = fallback(id) && record(id).map({ Date().timeIntervalSince($0.issued) < CommandAlertPolicy.fallbackSeconds }) == true
+                let validFallback = false // Retire the previous multi-minute handoff timers.
                 if !(outcome ? validOutcome : validFallback) {
                     clear(id); trace(id, "alert_recovery_removed")
                 }
@@ -79,11 +68,7 @@ import FanControlCore
                 }
             }
         }
-        // Read-only reconciliation can cancel a missing-receipt timer when HA's
-        // acknowledgment was lost. It never submits or wakes anything.
-        for entry in CommandDelivery.shared.alertRecords() where fallback(entry.id) {
-            await CommandDelivery.shared.reconcile(entry.id)
-        }
+        // Command execution belongs to HA; recovery never polls its operations.
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         let request = notification.request
@@ -125,8 +110,11 @@ import FanControlCore
                   CommandAlertPolicy.localOutcome(latest, state: state, current: Vault.load()), !wasDelivered(id) else { return }
             markDelivered(id)
             let content = UNMutableNotificationContent()
-            content.title = state["operation_status"] as? String == "failed" ? "Fan Control request failed" : "Fan Control not confirmed"
-            content.body = "Home Assistant could not confirm the requested outcome."
+            let handoffFailed = state["local_error"] as? Bool == true
+            content.title = handoffFailed ? "Home Assistant handoff failed"
+                : state["operation_status"] as? String == "failed" ? "Fan Control request failed" : "Fan Control not confirmed"
+            content.body = handoffFailed ? "The watch could not confirm that Home Assistant received your request."
+                : "Home Assistant could not confirm the requested outcome."
             content.sound = .default
             content.userInfo = ["operation_id": id, "kind": "outcome"]
             try? await center.add(UNNotificationRequest(identifier: "command-" + id, content: content, trigger: nil))

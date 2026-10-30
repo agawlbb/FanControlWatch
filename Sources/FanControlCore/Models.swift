@@ -28,6 +28,20 @@ public struct Panel: Codable, Equatable, Sendable {
     public var vehicle: Bool { !(wake_entity ?? "").isEmpty }
 }
 public struct Connection: Codable, Equatable, Sendable {
+    public static let handoffSeconds: TimeInterval = 10
+    public func remoteAddress() throws -> URL {
+        try Self.remoteAddress(remote_url)
+    }
+    public static func remoteAddress(_ raw: String?) throws -> URL {
+        guard let remote = raw, !remote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw ControlError.invalidConfiguration
+        }
+        let address = try Self.address(remote, external: true)
+        let host = (address.host ?? "").lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        guard host != "localhost", !host.hasSuffix(".localhost"), host != "::1",
+              host != "0.0.0.0", !host.hasPrefix("127.") else { throw ControlError.invalidConfiguration }
+        return address
+    }
     public var url: String
     public var remote_url: String?
     public var token: String

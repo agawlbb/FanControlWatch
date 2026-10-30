@@ -1,4 +1,50 @@
-# HA-owned command delivery (Apple 0.8.0 / HA 0.9.0)
+# HA-owned command delivery
+
+## Current behavior — October 30, 2026
+
+Task `fix/remote-ha-handoff` starts from canonical `main` commit
+`07bd517653bb074ce6af1e20704d442ed2d2b9e3`.
+
+The watch uses its saved `remote_url` exclusively for authenticated HA requests.
+Missing/invalid remote configuration fails without attempting the local URL.
+Long-press a FanControl page to open the existing Home Assistant connection screen:
+it now displays the saved remote URL and offers Test remote connection, an encrypted
+configuration read that sends no physical command or wake.
+
+A tap immediately projects the requested outcome in gray, saves the absolute intent
+and schedules one background upload. The handoff budget is ten seconds from the
+original tap, including receipt. There is no duplicate foreground sender, endpoint
+fallback, retry or status polling. A failed/expired handoff is not proof that HA
+did not receive the command: a response can be lost. Reopening never resubmits it.
+An authenticated matching acknowledgment ends watch responsibility. HA retains its
+existing durable execution/retry/wake/confirmation window and failure notifications.
+Push-triggered authenticated result retrieval remains event-driven, not polling.
+
+Action buttons show gray Activated during handoff, restore their normal name on
+failure, or show teal Activated for five seconds from acknowledgment before resetting.
+Neither duplicate receipts nor stale timers can extend or clear a newer request.
+Controls unlock on acknowledgment rather than waiting for HA execution. Visible
+vehicle entry sends one wake submission without subsequent watch status polling.
+
+watchOS owns background scheduling and suspension. The ten-second UI deadline is
+enforced while running and on recovery, alongside ten-second transport limits;
+wall-clock callback/notification delivery while suspended requires physical checks.
+Remaining checks: remote-only cellular connectivity; missing/incorrect URL; DNS/TLS,
+offline and lost-response cases; early navigation/wrist-down; action acknowledgment
+and five-second reset; new taps during an older timer; HA failure push after handoff.
+No installation, TestFlight release or HA deployment is included in this change.
+
+Validation: source `47ac0d3890283c1d095ef777123aa15357513fdd` (project version
+0.9.2/build 20, no new packaged build) passed all 69 Swift core tests and watchOS
+SDK source typechecking in [Core tests run 41122623379](https://github.com/agawlbb/FanControlWatch/actions/runs/41122623379).
+Coverage includes remote-only transport and no fallback, absent/loopback remote
+configuration, ten-second handoff expiry, failure reset, five-second receipt expiry,
+duplicate acknowledgments and stale callbacks/timers across targets. Source checking
+does not verify physical-watch rendering, OS scheduling or real HA connectivity.
+Simulator/signing builds were not run. Documentation and main integration use
+`[skip ci]` to avoid the existing main-push app archive/simulator workflow.
+
+The following sections record prior behavior and historical validation.
 
 Every HA control submits an absolute intent with a stable UUID and original issued
 time. A keychain outbox records the captured connection, target and body before a

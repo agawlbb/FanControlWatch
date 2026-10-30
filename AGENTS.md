@@ -1,5 +1,23 @@
 # Apple Watch and iPhone development
 
+## Current command contract — October 30, 2026
+
+This user-approved contract supersedes older watch retry, monitoring and receipt
+duration rules below. Use the per-watch configured remote HTTPS URL exclusively;
+never hardcode an HA host or fall back to a local address. The watch saves one
+absolute intent and schedules one upload, with a ten-second handoff deadline from
+the tap. No foreground duplicate submission, delivery retry, reopening replay or
+execution polling. Navigation does not cancel the scheduled handoff. On authenticated
+ownership HA alone continues execution, wake, retries and failure notification.
+HA's 180-second execution window remains independent of the watch's ten seconds.
+Action buttons show gray Activated during handoff, restore their command name on
+handoff failure, and show teal Activated for five seconds after acknowledgment
+before restoring their normal name/appearance. Stale callbacks/timers must not
+affect newer taps or other targets. State controls still project absolute intent.
+The existing long-press connection screen displays the saved remote URL and offers
+a bounded authenticated read-only connection test. It never wakes a vehicle.
+Entry wake submits once; there is no watch-side readiness/status polling afterward.
+
 ## GitHub, branches and workspaces
 
 - GitHub `agawlbb/FanControlWatch`, default branch `main`, is the canonical copy of accepted code and history. Laptop, VPS and cloud checkouts are working copies. The default branch is for integration of completed work, never a working branch for a task.

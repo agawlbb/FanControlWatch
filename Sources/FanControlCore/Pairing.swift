@@ -11,7 +11,7 @@ public final class Pairing {
         return Data([tag]) + (bytes.count < 128 ? Data([UInt8(bytes.count)]) : Data([0x80 | UInt8(length.count)]) + Data(length)) + bytes
     }
     public func run(address: String, progress: @escaping @MainActor (String) -> Void) async throws -> Connection {
-        _ = try Connection.address(address)
+        _ = try Connection.remoteAddress(address)
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateRandomKey([kSecAttrKeyType: kSecAttrKeyTypeRSA, kSecAttrKeySizeInBits: 2048] as CFDictionary, &error),
               let publicKey = SecKeyCopyPublicKey(privateKey), let pkcs1 = SecKeyCopyExternalRepresentation(publicKey, &error) as Data? else { throw ControlError.invalidResponse }

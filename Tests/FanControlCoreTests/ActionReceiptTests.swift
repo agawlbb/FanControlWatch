@@ -9,7 +9,8 @@ final class ActionReceiptTests: XCTestCase {
         receipts.begin(request)
         XCTAssertTrue(ActionReceipts.isGray(receipts.feedback(target: request.target, command: request.command)))
         receipts.finish(request, accepted: false)
-        XCTAssertTrue(ActionReceipts.isGray(receipts.feedback(target: request.target, command: request.command)))
+        XCTAssertNil(receipts.feedback(target: request.target, command: request.command))
+        receipts.begin(request)
         receipts.finish(request, accepted: true)
         XCTAssertFalse(ActionReceipts.isGray(receipts.feedback(target: request.target, command: request.command)))
         receipts.clear()
@@ -62,7 +63,7 @@ final class ActionReceiptTests: XCTestCase {
         let stop = Feedback(target:start.target, command:"stop_exercise",label:"Activated")
         receipts.begin(stop); receipts.finish(stop,accepted:false)
         XCTAssertEqual(receipts.feedback(target:start.target,command:start.command)?.phase,.accepted)
-        XCTAssertEqual(receipts.feedback(target:stop.target,command:stop.command)?.phase,.unconfirmed)
+        XCTAssertNil(receipts.feedback(target:stop.target,command:stop.command))
         receipts.clear()
         XCTAssertNil(receipts.feedback(target:start.target,command:start.command))
     }
