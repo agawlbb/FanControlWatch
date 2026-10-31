@@ -183,6 +183,7 @@ struct SetupView: View {
     @State private var pairing: Task<Void, Never>?
     @State private var connectionCheck: Task<Void, Never>?
     @State private var connectionResult = ""
+    @State private var diagnostics = false
     var body: some View {
         ScrollView { VStack {
             Text("Home Assistant").font(.headline)
@@ -217,6 +218,7 @@ struct SetupView: View {
                     if let c = model.connection { player.sync(c) }
                 }.disabled(player.syncing)
                 if !player.status.isEmpty { Text(player.status).font(.caption2) }
+                Button("Diagnostics") { diagnostics = true }
                 Button("Forget connection", role: .destructive) { model.forget(); dismiss() }
             } else {
                 TextField("https://home.example", text: $address).textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -234,6 +236,7 @@ struct SetupView: View {
             }
             Link("Source · AGPL-3.0-only", destination: URL(string: "https://github.com/agawlbb/FanControlWatch")!).font(.caption2)
         } }
+        .sheet(isPresented: $diagnostics) { PushDiagnosticsView(connection: model.connection) }
         .onDisappear { pairing?.cancel(); connectionCheck?.cancel(); connectionCheck = nil }
     }
 }

@@ -37,6 +37,59 @@ final class RemoteHandoffTests: XCTestCase {
         record.accepted = false; record.result = Data("failed".utf8)
         XCTAssertFalse(record.awaitingHandoff(now: issued.addingTimeInterval(1)))
     }
+    func testLateReceiptCorrectsFailureAfterExerciseWithoutRevivingAction() throws {
+        let issued = Date(timeIntervalSince1970: 1000)
+        let reopened = issued.addingTimeInterval(25 * 60)
+        let c = try connection()
+        let body = try JSONSerialization.data(withJSONObject: ["action": "operation_submit", "command": "start_exercise"])
+        var record = CommandRecord(id: "one", connection: c, entity: "fan.test", body: body, issued: issued)
+        let failure: [String: Any] = ["operation_id": "one", "operation_status": "failed", "local_error": true]
+        record.result = try JSONSerialization.data(withJSONObject: failure)
+        let receipt: [String: Any] = ["operation_id": "one", "operation_status": "complete"]
+        XCTAssertTrue(record.matchesCurrentTarget(c))
+        XCTAssertTrue(CommandPolicy.accept(receipt, id: record.id, previous: record.result))
+        record.result = try JSONSerialization.data(withJSONObject: receipt)
+        record.accepted = CommandPolicy.owns(receipt)
+        record.timings = ["ack_received": reopened.timeIntervalSince1970 * 1000]
+        XCTAssertFalse(record.awaitingHandoff(now: reopened))
+        XCTAssertFalse(record.acknowledgedDuringHandoff)
+        XCTAssertFalse(record.showsActionReceipt(now: reopened))
+        XCTAssertFalse(CommandAlertPolicy.localOutcome(record, state: failure, current: c, now: reopened))
+        let restored = try JSONDecoder().decode(CommandRecord.self, from: JSONEncoder().encode(record))
+        XCTAssertTrue(restored.accepted)
+        XCTAssertFalse(restored.showsActionReceipt(now: reopened))
+    }
+    func testOnlyTimelyReceiptCanRestoreRemainingFiveSeconds() throws {
+        let issued = Date(timeIntervalSince1970: 1000)
+        var record = CommandRecord(id: "one", connection: try connection(), entity: "fan.test", body: Data(), issued: issued)
+        record.accepted = true
+        record.timings = ["ack_received": 1009000]
+        XCTAssertTrue(record.acknowledgedDuringHandoff)
+        XCTAssertTrue(record.showsActionReceipt(now: issued.addingTimeInterval(13.99)))
+        XCTAssertFalse(record.showsActionReceipt(now: issued.addingTimeInterval(14)))
+        XCTAssertFalse(record.showsActionReceipt(now: issued.addingTimeInterval(1500)))
+        for ack in [999000.0, 1010000.0, 2500000.0] {
+            record.timings = ["ack_received": ack]
+            XCTAssertFalse(record.acknowledgedDuringHandoff)
+            XCTAssertFalse(record.showsActionReceipt(now: Date(timeIntervalSince1970: ack / 1000)))
+        }
+    }
+    func testReceiptEvidenceRequiresOriginalPairingAndConfiguredTarget() throws {
+        let c = try connection()
+        let record = CommandRecord(id: "one", connection: c, entity: "fan.test", body: Data(), issued: Date())
+        XCTAssertTrue(record.matchesCurrentTarget(c))
+        XCTAssertFalse(record.matchesCurrentTarget(nil))
+        let data = try JSONEncoder().encode(c)
+        let original = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        for (key, value) in [("token", String(repeating: "c", count: 64)), ("watch_id", String(repeating: "d", count: 32))] {
+            var changed = original; changed[key] = value
+            let other = try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: changed))
+            XCTAssertFalse(record.matchesCurrentTarget(other))
+        }
+        var removed = original; removed["devices"] = [["entity": "fan.other", "title": "Other"]]
+        XCTAssertFalse(record.matchesCurrentTarget(try JSONDecoder().decode(Connection.self, from: JSONSerialization.data(withJSONObject: removed))))
+        XCTAssertFalse(CommandPolicy.accept(["operation_id": "superseded", "operation_status": "complete"], id: record.id, previous: nil))
+    }
     func testActionResetsFiveSecondsAfterFirstAcknowledgment() {
         var receipts = ActionReceipts()
         let start = Date(timeIntervalSince1970: 1000)

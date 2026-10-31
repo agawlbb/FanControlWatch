@@ -57,7 +57,11 @@ import FanControlCore
         if let connection { try? Vault.save(connection) }
         if let connection, resetSelection {
             PushDiagnostics.shared.record("opened", connection: connection)
-            Task { await CommandAlerts.shared.prepareNotifications() }
+            CommandDelivery.shared.foregroundEntry()
+            Task {
+                await CommandAlerts.shared.recover()
+                await CommandAlerts.shared.prepareNotifications()
+            }
         }
         observed = connection.flatMap { c in device.map { ObservationCache.shared.load(c, $0) } } ?? [:]
         WatchCompanion.shared.requestLatest()
@@ -206,12 +210,18 @@ import FanControlCore
         guard visible, let intent = activeIntent, intent.id == id,
               let c = connection, c.watch_id == intent.connection.watch_id, c.token == intent.connection.token,
               let current = device, current.sameCommandTarget(as: intent.device), feedback?.id == intent.feedback.id,
-              let data = CommandDelivery.shared.record(id)?.result,
+              let entry = CommandDelivery.shared.record(id), let data = entry.result,
               let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               state["operation_id"] as? String == id else { return }
         let status = state["operation_status"] as? String ?? "unknown"
         let acknowledgedAt = CommandDelivery.shared.record(id)?.timings?["ack_received"]
             .map { Date(timeIntervalSince1970: $0 / 1000) } ?? Date()
+        if CommandPolicy.owns(state), !entry.acknowledgedDuringHandoff {
+            // Save late evidence and clear alerts without replaying expired UI feedback.
+            actionReceipts.remove(intent.feedback)
+            commandPending = false; feedback = nil; activeIntent = nil
+            return
+        }
         if CommandPolicy.owns(state) {
             if feedback?.phase != .accepted { CommandDelivery.shared.trace(id, "ack_displayed") }
             feedback?.phase = .accepted; speedDraft = nil
@@ -249,8 +259,7 @@ import FanControlCore
         guard let entry = CommandDelivery.shared.pending(connection: c, device: d),
               let body = try? JSONSerialization.jsonObject(with: entry.body) as? [String: Any],
               let action = body["command"] as? String else { return }
-        let recentActionReceipt = entry.accepted && ActionReceipts.applies(action) &&
-            entry.timings?["ack_received"].map { Date().timeIntervalSince1970 * 1000 - $0 < ActionReceipts.acceptedSeconds * 1000 } == true
+        let recentActionReceipt = ActionReceipts.applies(action) && entry.showsActionReceipt()
         guard entry.awaitingHandoff() || recentActionReceipt else { return }
         let label = action.hasPrefix("garage_") ? "Garage"
             : action.hasPrefix("trunk_") ? "Trunk"

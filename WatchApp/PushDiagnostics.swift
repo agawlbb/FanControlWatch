@@ -32,8 +32,16 @@ struct PushDiagnosticsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Push diagnostics").font(.headline)
-                Text("Receipt is separate from selection saved. HA diagnostics reconcile matching update IDs.").font(.caption)
+                Text("Diagnostics").font(.headline)
+                Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"))").font(.caption2)
+                Text("Command receipt and notification times are separate from vehicle completion.").font(.caption)
+                Button("Refresh diagnostics") {
+                    Task {
+                        await CommandAlerts.shared.recover()
+                        events = PushDiagnostics.shared.history(connection)
+                        commands = CommandDelivery.shared.diagnostics()
+                    }
+                }
                 Button("Report pending receipts") {
                     Task {
                         if let connection { await PushDiagnostics.flush(connection) }
@@ -44,6 +52,7 @@ struct PushDiagnosticsView: View {
                     Text("Command timings").font(.headline)
                     ForEach(Array(commands.enumerated()), id: \.offset) { item in Text(item.element).font(.caption2) }
                 }
+                if commands.isEmpty { Text("No saved command timings.").font(.caption2) }
                 ForEach(events.reversed()) { event in
                     VStack(alignment: .leading) {
                         Text(event.phase.replacingOccurrences(of: "_", with: " "))

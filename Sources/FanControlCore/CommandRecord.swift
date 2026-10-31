@@ -16,9 +16,25 @@ public struct CommandRecord: Codable {
         let age = now.timeIntervalSince(issued)
         return !accepted && result == nil && age >= 0 && age < Connection.handoffSeconds
     }
-    public mutating func mark(_ phase: String) {
+    // Receipt evidence can arrive after the UI deadline, but only for this pairing/target.
+    public func matchesCurrentTarget(_ current: Connection?) -> Bool {
+        guard let current, current.watch_id == connection.watch_id, current.token == connection.token,
+              let captured = connection.devices.first(where: { $0.entity == entity }) else { return false }
+        return current.devices.contains { $0.sameCommandTarget(as: captured) }
+    }
+    public var acknowledgedDuringHandoff: Bool {
+        guard let ack = timings?["ack_received"] else { return false }
+        let age = ack / 1000 - issued.timeIntervalSince1970
+        return age >= 0 && age < Connection.handoffSeconds
+    }
+    public func showsActionReceipt(now: Date = Date()) -> Bool {
+        guard accepted, acknowledgedDuringHandoff, let ack = timings?["ack_received"] else { return false }
+        let age = now.timeIntervalSince1970 - ack / 1000
+        return age >= 0 && age < ActionReceipts.acceptedSeconds
+    }
+    public mutating func mark(_ phase: String, at: Date = Date()) {
         var times = timings ?? [:]
-        if times[phase] == nil { times[phase] = Date().timeIntervalSince1970 * 1000 }
+        if times[phase] == nil { times[phase] = at.timeIntervalSince1970 * 1000 }
         timings = times
         var list = events ?? []
         if list.last != phase { list.append(phase) }

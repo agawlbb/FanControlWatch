@@ -83,3 +83,12 @@ wake/retry delays do not trigger one-minute Exercise alerts; absent evidence sta
 **not confirmed**. Scripts/scenes/music receipts prove dispatch acceptance only.
 Local music stays watch-owned; phone snapshots and passive reads never wake cars.
 Existing pairings are preserved. See [the delivery contract](COMMAND-DELIVERY.md).
+
+### Watch diagnostics
+
+Long-press any watch control page, then tap **Diagnostics** on the connection
+settings screen. It shows the installed version/build, saved command receipt and
+alert timestamps, and push history. **Refresh diagnostics** reads local evidence
+and removes obsolete local alerts; it sends no command, wake or status poll.
+A late authenticated HA receipt clears obsolete handoff failure evidence without
+restarting Activated feedback. Receipt does not prove physical completion.

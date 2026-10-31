@@ -7,10 +7,7 @@ public enum CommandAlertPolicy {
 
     public static func relevant(_ record: CommandRecord, current: Connection?, now: Date = Date()) -> Bool {
         let age = now.timeIntervalSince(record.issued)
-        guard age >= -5, age < maximumAge, let current,
-              current.watch_id == record.connection.watch_id, current.token == record.connection.token,
-              let captured = record.connection.devices.first(where: { $0.entity == record.entity }),
-              current.devices.contains(where: { $0.sameCommandTarget(as: captured) }),
+        guard age >= -5, age < maximumAge, record.matchesCurrentTarget(current),
               let body = try? JSONSerialization.jsonObject(with: record.body) as? [String: Any],
               body["action"] as? String == "operation_submit",
               let command = body["command"] as? String, !command.isEmpty, command != "wake" else { return false }
