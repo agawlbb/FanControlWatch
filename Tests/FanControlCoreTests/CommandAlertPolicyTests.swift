@@ -41,6 +41,16 @@ final class CommandAlertPolicyTests: XCTestCase {
         }
         XCTAssertTrue(CommandAlertPolicy.relevant(try record(age: 224), current: try connection(), now: now))
     }
+    func testNotificationSubmissionResumingAfterTwentyFiveMinutesIsObsolete() throws {
+        let entry = try record(command: "start_exercise")
+        let failure: [String: Any] = ["operation_id": "one", "operation_status": "failed", "local_error": true]
+        let current = try connection()
+        XCTAssertTrue(CommandAlertPolicy.localOutcome(entry, state: failure, current: current, now: now))
+        // Both the pre-submission and post-submission checks use the original tap.
+        let reopened = now.addingTimeInterval(25 * 60)
+        XCTAssertFalse(CommandAlertPolicy.localOutcome(entry, state: failure, current: current, now: reopened))
+        XCTAssertFalse(CommandAlertPolicy.relevant(entry, current: current, now: reopened))
+    }
     func testRevocationChangedTargetAndMissingPairingSuppressAlerts() throws {
         let entry = try record()
         XCTAssertFalse(CommandAlertPolicy.relevant(entry, current: nil, now: now))

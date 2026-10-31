@@ -27,21 +27,40 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
         super.init()
         if let data = SecureCommandStorage.load(), let saved = try? JSONDecoder().decode([String: Entry].self, from: data) { entries = saved }
     }
-    func trace(_ id: String, _ phase: String) {
-        entries[id]?.mark(phase)
+    func trace(_ id: String, _ phase: String, at: Date = Date()) {
+        entries[id]?.mark(phase, at: at)
         try? save()
         var events = UserDefaults.standard.array(forKey: "commandTimingEvents") as? [[String: String]] ?? []
-        events.append(["id": id, "phase": phase, "at": String(Date().timeIntervalSince1970 * 1000)])
+        events.append(["id": id, "phase": phase, "at": String(at.timeIntervalSince1970 * 1000)])
         UserDefaults.standard.set(Array(events.suffix(100)), forKey: "commandTimingEvents")
         logger.info("operation=\(id, privacy: .public) phase=\(phase, privacy: .public)")
     }
+    func foregroundEntry() {
+        for entry in entries.values where entry.matchesCurrentTarget(Vault.load()) {
+            trace(entry.id, "app_foreground")
+        }
+    }
     func diagnostics() -> [String] {
         let events = UserDefaults.standard.array(forKey: "commandTimingEvents") as? [[String: String]] ?? []
-        var result = events.reversed().map { ($0["id"] ?? "") + " " + ($0["phase"] ?? "") + " " + ($0["at"] ?? "") }
-        for entry in entries.values {
-            if let data = entry.result, let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let timing = state["timing"] as? [String: Any] {
-                result.append(entry.id + " HA " + String(describing: timing))
+        func stamp(_ ms: Double) -> String { Date(timeIntervalSince1970: ms / 1000).formatted(date: .abbreviated, time: .standard) }
+        var result = events.reversed().map {
+            ($0["id"] ?? "") + " " + ($0["phase"] ?? "") + " " + (Double($0["at"] ?? "").map(stamp) ?? "")
+        }
+        for entry in entries.values.sorted(by: { $0.issued > $1.issued }) {
+            guard entry.matchesCurrentTarget(Vault.load()) else { continue }
+            let body = (try? JSONSerialization.jsonObject(with: entry.body)) as? [String: Any]
+            result.append(entry.id + " " + (body?["command"] as? String ?? "Command"))
+            for (phase, at) in (entry.timings ?? [:]).sorted(by: { $0.value < $1.value }) {
+                result.append(phase + " " + stamp(at))
+            }
+            if let data = entry.result, let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                result.append("Saved result: " + (state["operation_status"] as? String ?? "unknown"))
+                if let timing = state["timing"] as? [String: Any] {
+                    // Only known numeric timing fields; never display arbitrary server text.
+                    for (phase, at) in timing.sorted(by: { $0.key < $1.key }) where phase.hasSuffix("_ms") {
+                        if let ms = at as? Double { result.append("HA " + phase + " " + stamp(ms)) }
+                    }
+                }
             }
         }
         return result
@@ -122,13 +141,13 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
         }
     }
     func outcome(_ id: String, state: [String: Any]) {
-        guard var entry = entries[id], state["operation_id"] as? String == id else { return }
+        guard var entry = entries[id], entry.matchesCurrentTarget(Vault.load()), state["operation_id"] as? String == id else { return }
         guard CommandPolicy.accept(state, id: id, previous: entry.result) else { return }
         entry.accepted = CommandPolicy.owns(state)
         entry.mark(entry.accepted ? "ack_received" : "handoff_failed")
         entry.result = try? JSONSerialization.data(withJSONObject: state)
         entries[id] = entry
-        try? save()
+        trace(id, entry.accepted ? (entry.acknowledgedDuringHandoff ? "receipt_saved" : "late_receipt_saved") : "failure_saved")
         CommandAlerts.shared.outcome(id, state: state)
         logger.info("operation=\(id, privacy: .public) status=\(state["operation_status"] as? String ?? "unknown", privacy: .public)")
         NotificationCenter.default.post(name: .commandOutcomeSaved, object: id)
@@ -171,11 +190,10 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
             guard let entry = self.entries[parts[0]] else { return }
             let code = (task.response as? HTTPURLResponse)?.statusCode ?? 0
             if error == nil, (200..<300).contains(code), let result = try? CommandEnvelope.response(data, connection: entry.connection, aad: parts[1]) {
-                // A late response cannot revive expired handoff presentation.
-                if entry.awaitingHandoff() {
-                    self.outcome(entry.id, state: result)
-                    if !CommandPolicy.owns(result), self.entries[entry.id]?.result == nil { self.rejected(entry.id) }
-                }
+                // The UI deadline never invalidates authenticated receipt evidence.
+                // Outcome policy still rejects wrong targets and stale terminal regressions.
+                self.outcome(entry.id, state: result)
+                if !CommandPolicy.owns(result), self.entries[entry.id]?.result == nil { self.rejected(entry.id) }
             } else if code >= 400 && code < 500 && code != 429 {
                 self.rejected(entry.id)
             } else {

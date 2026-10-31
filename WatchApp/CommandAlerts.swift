@@ -61,6 +61,10 @@ import FanControlCore
             } else if request.identifier.hasPrefix("command-") {
                 let id = String(request.identifier.dropFirst(8))
                 markDelivered(id)
+                if record(id)?.timings?["alert_os_delivery"] == nil {
+                    CommandDelivery.shared.trace(id, "alert_os_delivery", at: notification.date)
+                }
+                trace(id, "alert_observed_delivered")
                 let state = record(id).flatMap { $0.result }.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
                 let relevant = record(id).map { CommandAlertPolicy.relevant($0, current: Vault.load()) } ?? false
                 if !relevant || state.map(CommandPolicy.owns) == true || state?["operation_status"] as? String == "cancelled" {
@@ -108,7 +112,6 @@ import FanControlCore
             guard (try? await center.requestAuthorization(options: [.alert, .sound])) == true,
                   generations[id] == ticket, let latest = record(id),
                   CommandAlertPolicy.localOutcome(latest, state: state, current: Vault.load()), !wasDelivered(id) else { return }
-            markDelivered(id)
             let content = UNMutableNotificationContent()
             let handoffFailed = state["local_error"] as? Bool == true
             content.title = handoffFailed ? "Home Assistant handoff failed"
@@ -116,10 +119,29 @@ import FanControlCore
             content.body = handoffFailed ? "The watch could not confirm that Home Assistant received your request."
                 : "Home Assistant could not confirm the requested outcome."
             content.sound = .default
-            content.userInfo = ["operation_id": id, "kind": "outcome"]
-            try? await center.add(UNNotificationRequest(identifier: "command-" + id, content: content, trigger: nil))
-            if generations[id] != ticket { clear(id) }
-            else { trace(id, "alert_outcome_scheduled") }
+            content.userInfo = ["operation_id": id, "kind": "outcome", "issued_at_ms": latest.issued.timeIntervalSince1970 * 1000]
+            trace(id, "alert_submit_started")
+            do {
+                try await center.add(UNNotificationRequest(identifier: "command-" + id, content: content, trigger: nil))
+            } catch {
+                trace(id, "alert_submit_failed")
+                return
+            }
+            // Submission can finish after suspension, receipt arrival or a newer tap.
+            guard generations[id] == ticket else {
+                // A newer submission for this ID owns its generation and notification.
+                if generations[id] == nil {
+                    center.removePendingNotificationRequests(withIdentifiers: ["command-" + id])
+                    center.removeDeliveredNotifications(withIdentifiers: ["command-" + id])
+                }
+                trace(id, "alert_stale_submit_finished"); return
+            }
+            guard let latest = record(id),
+                  CommandAlertPolicy.localOutcome(latest, state: state, current: Vault.load()) else {
+                clear(id); trace(id, "alert_after_submit_removed"); return
+            }
+            markDelivered(id)
+            trace(id, "alert_outcome_scheduled")
         }
     }
 }
