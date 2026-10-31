@@ -14,3 +14,8 @@ No command retries, replay, execution polling, HA changes or physical commands.
 Remaining paired-device checks: navigate/wrist-down during Start handoff, return
 at 25 minutes, late authenticated receipt clearing, real APNs delivery, diagnostics
 navigation, and a newer command/changed pairing while an old callback completes.
+
+Validation: 73 Swift core tests, watchOS SDK typechecking, simulator builds and
+unsigned archive passed. Signed merged source 4e4b920853740bad20ad73976be0e9c589a9e799
+was released as 0.9.3 (22), VALID and IN_BETA_TESTING in Internal. Release evidence:
+https://github.com/agawlbb/FanControlWatch/actions/runs/41227745700

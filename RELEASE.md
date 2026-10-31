@@ -1,3 +1,54 @@
+# Stale handoff alerts and accessible diagnostics — 0.9.3 (22), October 31, 2026
+
+Published to the existing **Internal** TestFlight group. Apple build
+`208acc40-6749-43bb-937d-1041b20afb4f` is `VALID`, not expired and
+`IN_BETA_TESTING`, with no non-exempt encryption. No external testers, beta
+review submission or App Store release were created.
+
+Signed source: `4e4b920853740bad20ad73976be0e9c589a9e799`.
+Phone, watch and complication use version **0.9.3**, build **22**. Later removal
+of the one-use release workflow and these release notes do not alter app code.
+
+## Changes
+
+- Save authenticated late HA receipts for the original pairing and configured
+  target, clearing obsolete local handoff failures without reviving Activated UI.
+- Reconcile local notifications on foreground entry and after asynchronous
+  submission. An old callback cannot clear a newer submission.
+- Add **Diagnostics** to the existing long-press connection settings screen.
+  Show installed version/build, saved receipt and alert timings, OS notification
+  delivery timestamps and local refresh. Diagnostics refresh sends no vehicle
+  command, wake or operation-status poll.
+- Preserve the ten-second handoff, one upload, no reopening replay, no execution
+  polling and the five-second timely action receipt display.
+
+## Validation and evidence
+
+All **73 Swift core tests**, watchOS SDK typechecking, iPhone/watch simulator
+builds, screenshot runs and unsigned archive passed on the final task head:
+https://github.com/agawlbb/FanControlWatch/actions/runs/41226980465
+https://github.com/agawlbb/FanControlWatch/actions/runs/41226984263
+
+The merged source repeated all 73 tests and passed signed archive/export, deep
+signature verification, production APNs entitlement checks, bundle/build metadata
+checks, upload, Apple processing and existing internal-group assignment:
+https://github.com/agawlbb/FanControlWatch/actions/runs/41227745700
+
+Apple build-number preflight verified 21 was the highest uploaded build and 22
+was available. Processing evidence is preserved in that run's
+`FanControlWatch-TestFlight-processing` artifact.
+
+Merged through https://github.com/agawlbb/FanControlWatch/pull/4. The task branch
+was removed locally and remotely. The one-use release dispatch workflow was
+removed after dispatch; no release helper remains. No HA deployment was required.
+
+Remaining paired-device checks: navigate/wrist-down during Start handoff, reopen
+after 25 minutes, late receipt clearing, actual notifications, diagnostics
+navigation and a newer command or changed pairing during an old callback. The
+historical notification was not reproduced on a physical watch; automation
+does not prove actual watchOS notification presentation or vehicle behavior.
+
+---
 # Remote HA handoff and action reset - 0.9.2 (21), October 30, 2026
 
 Published to the existing **Internal** TestFlight group. Apple build
