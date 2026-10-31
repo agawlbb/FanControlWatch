@@ -128,7 +128,15 @@ import FanControlCore
                 return
             }
             // Submission can finish after suspension, receipt arrival or a newer tap.
-            guard generations[id] == ticket, let latest = record(id),
+            guard generations[id] == ticket else {
+                // A newer submission for this ID owns its generation and notification.
+                if generations[id] == nil {
+                    center.removePendingNotificationRequests(withIdentifiers: ["command-" + id])
+                    center.removeDeliveredNotifications(withIdentifiers: ["command-" + id])
+                }
+                trace(id, "alert_stale_submit_finished"); return
+            }
+            guard let latest = record(id),
                   CommandAlertPolicy.localOutcome(latest, state: state, current: Vault.load()) else {
                 clear(id); trace(id, "alert_after_submit_removed"); return
             }
