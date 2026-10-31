@@ -1,4 +1,4 @@
-# One-use bridge for the user-authorized release; removes itself before dispatch.
+# One-use bridge for the user-authorized release; removed after dispatch.
 name: Release handoff correction
 on:
   push:
@@ -25,12 +25,6 @@ jobs:
               throw new Error('Task branch is not fully merged; refusing cleanup/release.');
             }
             await github.rest.git.deleteRef({...repository, ref: `heads/${branch}`});
-            const path = '.github/workflows/release-handoff.yml';
-            const file = await github.rest.repos.getContent({...repository, path, ref: 'main'});
-            await github.rest.repos.deleteFile({
-              ...repository, path, sha: file.data.sha, branch: 'main',
-              message: 'Remove completed one-use release bridge [skip ci]'
-            });
             await github.rest.actions.createWorkflowDispatch({
               ...repository, workflow_id: 'testflight.yml', ref: 'main',
               inputs: {build_number: '22', upload: 'true'}
