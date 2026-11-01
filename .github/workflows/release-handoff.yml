@@ -1,0 +1,36 @@
+# One-use bridge for this explicitly authorized TestFlight release.
+name: Release foreground handoff fix
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release-handoff.yml]
+permissions:
+  contents: write
+  actions: write
+jobs:
+  release:
+    if: github.event.deleted == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const repository = context.repo;
+            const branch = 'fix/foreground-command-handoff';
+            const main = await github.rest.git.getRef({...repository, ref: 'heads/main'});
+            if (main.data.object.sha !== context.sha) {
+              throw new Error('Main moved after release approval; refusing an unreviewed build.');
+            }
+            const head = await github.rest.git.getRef({...repository, ref: `heads/${branch}`});
+            const comparison = await github.rest.repos.compareCommitsWithBasehead({
+              ...repository, basehead: `${head.data.object.sha}...main`
+            });
+            if (!['ahead', 'identical'].includes(comparison.data.status)) {
+              throw new Error('Task branch is not fully merged; refusing cleanup/release.');
+            }
+            await github.rest.git.deleteRef({...repository, ref: `heads/${branch}`});
+            await github.rest.actions.createWorkflowDispatch({
+              ...repository, workflow_id: 'testflight.yml', ref: 'main',
+              inputs: {build_number: '23', upload: 'true'}
+            });
