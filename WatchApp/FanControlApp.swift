@@ -4,10 +4,15 @@ import UserNotifications
 import FanControlCore
 
 @main struct FanControlApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @WKApplicationDelegateAdaptor(PushNotifications.self) private var pushDelegate
     init() { UNUserNotificationCenter.current().delegate = CommandAlerts.shared; WatchCompanion.shared.start(); CommandDelivery.shared.recover() }
     var body: some Scene {
-        WindowGroup { ControlsView() }
+        WindowGroup {
+            ControlsView().onChange(of: scenePhase) { _, phase in
+                if phase != .active { CommandDelivery.shared.appInactive() }
+            }
+        }
             .backgroundTask(.appRefresh(BackgroundRefresh.identifier)) { await BackgroundRefresh.run() }
     }
 }

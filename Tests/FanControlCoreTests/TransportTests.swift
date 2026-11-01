@@ -96,6 +96,33 @@ final class TransportTests: XCTestCase {
         XCTAssertEqual(hosts,["remote.example"])
         XCTAssertEqual(Set(nonces).count,1)
     }
+    func testContinuationUsesSameAbsoluteIntentWithFreshAuthentication() async throws {
+        let c = try client()
+        var nonces = Set<String>()
+        var intents = [Data]()
+        MockProtocol.handle = { request in
+            let packet = try JSONSerialization.jsonObject(with: MockProtocol.body(request)) as! [String: Any]
+            XCTAssertEqual(request.url?.host, "remote.example")
+            nonces.insert(packet["nonce"] as! String)
+            let aad = "fan-control-v1:\(packet["watch_id"]!):\(packet["timestamp"]!):\(packet["nonce"]!)"
+            let key = SymmetricKey(data: try Data(hex: String(repeating: "a", count: 64)))
+            let encrypted = Data(base64Encoded: packet["ciphertext"] as! String)!
+            let sealed = try AES.GCM.SealedBox(nonce: AES.GCM.Nonce(data: Data(base64Encoded: packet["iv"] as! String)!), ciphertext: encrypted.dropLast(16), tag: encrypted.suffix(16))
+            let plain = try AES.GCM.open(sealed, using: key, authenticating: Data(aad.utf8))
+            let body = try JSONSerialization.jsonObject(with: plain)
+            intents.append(try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys]))
+            if intents.count == 1 { throw URLError(.networkConnectionLost) }
+            let box = try AES.GCM.seal(JSONSerialization.data(withJSONObject: ["operation_id": "handoff", "operation_status": "pending"]), using: key, authenticating: Data((aad + ":response").utf8))
+            return (200, try JSONSerialization.data(withJSONObject: ["iv": Data(box.nonce).base64EncodedString(), "ciphertext": (box.ciphertext + box.tag).base64EncodedString()]))
+        }
+        let intent: [String: Any] = ["action": "operation_submit", "operation_id": "handoff", "entity": "fan.test", "command": "turn_off", "issued_at_ms": 123456]
+        do { _ = try await c.request(intent); XCTFail("Expected lost connection") } catch {}
+        let receipt = try await c.request(intent)
+        XCTAssertEqual(intents.count, 2)
+        XCTAssertEqual(intents.first, intents.last)
+        XCTAssertEqual(nonces.count, 2)
+        XCTAssertTrue(CommandPolicy.owns(receipt))
+    }
     func testRateLimitedDurableSubmissionDoesNotRetry() async throws {
         let c = try client(); var hosts = [String]()
         MockProtocol.handle = { request in hosts.append(request.url!.host!); return (429,Data()) }

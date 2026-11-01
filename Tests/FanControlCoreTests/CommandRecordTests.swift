@@ -21,4 +21,27 @@ final class CommandRecordTests: XCTestCase {
         XCTAssertTrue(restored.accepted)
         XCTAssertEqual(restored.result,entry.result)
     }
+    func testBackgroundContinuationIsBoundedAndSurvivesSerialization() throws {
+        let raw = """
+        {"url":"https://ha.example","token":"\(String(repeating:"a",count:64))","watch_id":"\(String(repeating:"b",count:32))","entity":"fan.test","devices":[{"entity":"fan.test","title":"Test"}]}
+        """
+        let c = try JSONDecoder().decode(Connection.self, from: Data(raw.utf8)).validated()
+        let issued = Date(timeIntervalSince1970: 1000)
+        let body = Data("captured absolute intent".utf8)
+        let original = CommandRecord(id: "stable", connection: c, entity: "fan.test", body: body, issued: issued)
+        var entry = original
+        XCTAssertTrue(entry.beginBackgroundContinuation(now: issued.addingTimeInterval(2)))
+        XCTAssertFalse(entry.beginBackgroundContinuation(now: issued.addingTimeInterval(3)))
+        var restored = try JSONDecoder().decode(CommandRecord.self, from: JSONEncoder().encode(entry))
+        XCTAssertFalse(restored.beginBackgroundContinuation(now: issued.addingTimeInterval(4)))
+        XCTAssertEqual(restored.body, body)
+        XCTAssertEqual(restored.id, "stable")
+        XCTAssertEqual(restored.issued, issued)
+        var expired = original
+        XCTAssertFalse(expired.beginBackgroundContinuation(now: issued.addingTimeInterval(Connection.handoffSeconds)))
+        var accepted = original; accepted.accepted = true
+        XCTAssertFalse(accepted.beginBackgroundContinuation(now: issued.addingTimeInterval(1)))
+        var failed = original; failed.result = Data()
+        XCTAssertFalse(failed.beginBackgroundContinuation(now: issued.addingTimeInterval(1)))
+    }
 }
