@@ -1,3 +1,43 @@
+# Foreground command handoff — 0.9.4 (23), November 1, 2026
+
+Published to the existing **Internal** TestFlight group. Apple build
+`9548c7c5-bbb9-44a3-95a3-e088ca7ac721` is `VALID`, not expired and
+`IN_BETA_TESTING`, with no non-exempt encryption.
+
+Signed source: `675b6ce8e81deccb29611c7f5546f0b8dca8754e`.
+Phone, watch and complication use version **0.9.4**, build **23**.
+The fix was merged through https://github.com/agawlbb/FanControlWatch/pull/5;
+the explicitly approved release bridge through pull request 6.
+
+## Changes and validation
+
+Commands persist their absolute intent, then submit immediately using reusable
+foreground HTTPS. App inactivity or foreground failure permits one background
+continuation with the same operation ID, intent and original ten-second deadline,
+but fresh authentication. HA deduplicates submissions and retains execution
+ownership. Navigation alone does not cancel delivery. Existing remote-only routing,
+receipt colors, five-second action feedback and one-shot dispatch protections remain.
+Numeric transport error codes are retained in local diagnostics.
+
+All **75 Swift tests** and watchOS SDK typechecking passed. Both simulator builds
+passed on the merged app source. **33 HA tests** covering durable operations,
+duplicate submissions, restart recovery and command feedback passed locally.
+Signed archive/export, signature and APNs entitlement checks, upload, Apple
+processing and existing internal-group assignment passed:
+https://github.com/agawlbb/FanControlWatch/actions/runs/41334139980
+
+Core tests and source typechecking:
+https://github.com/agawlbb/FanControlWatch/actions/runs/41333665556
+Simulator validation:
+https://github.com/agawlbb/FanControlWatch/actions/runs/41333933966
+
+No HA deployment or physical command was performed. Remaining paired-watch checks:
+repeat park/cellular commands while active, immediate taps after opening, wrist-down
+during handoff, lost responses and opposite intents during an older request.
+Automation does not establish actual watch routing, rendering or vehicle behavior.
+The release bridge and merged temporary branches are removed after publication.
+
+---
 # Stale handoff alerts and accessible diagnostics — 0.9.3 (22), October 31, 2026
 
 Published to the existing **Internal** TestFlight group. Apple build
