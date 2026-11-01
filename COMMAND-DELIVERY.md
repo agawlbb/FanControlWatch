@@ -1,3 +1,16 @@
+## Foreground command handoff — November 1, 2026
+
+User-authorized task `fix/foreground-command-handoff`, based on canonical main
+`56dddf61681811c65d239aab3f426e9384d3bd69`, replaces the background-upload-only rule.
+Persist the absolute intent first, then submit immediately through reusable foreground
+HTTPS. App inactivity or a foreground transport failure starts at most one background
+continuation with the same operation ID, intent and original ten-second deadline,
+but a fresh authentication nonce. HA serializes and deduplicates same-ID submissions;
+this is not permission to repeat physical actions. Navigation alone does not cancel
+handoff. No preflight, local endpoint fallback, polling or reopening replay is added.
+Authenticated receipts remain authoritative; a failed continuation cannot reject a
+foreground request still in flight. Diagnostics retain numeric transport error codes.
+
 # HA-owned command delivery
 
 ## Current behavior — October 30, 2026

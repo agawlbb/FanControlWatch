@@ -6,13 +6,15 @@ import OSLog
 extension Notification.Name { static let commandOutcomeSaved = Notification.Name("commandOutcomeSaved") }
 
 // The keychain outbox owns intent until HA acknowledges durable acceptance.
-// A background upload hands delivery to watchOS immediately, before screen exit.
+// Foreground HTTPS submits immediately; background continuation preserves the same intent.
 @MainActor final class CommandDelivery: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate {
     static let shared = CommandDelivery()
     static let sessionID = "dev.fancontrol.watch.command-delivery"
     typealias Entry = CommandRecord
     private let logger = Logger(subsystem: "dev.fancontrol.watch", category: "command-delivery")
     private var entries: [String: Entry] = [:]
+    private let foregroundHTTP = HTTP()
+    private var foregroundTasks: [String: Task<Void, Never>] = [:]
     private var buffers: [Int: Data] = [:]
     private var backgroundTasks: [WKURLSessionRefreshBackgroundTask] = []
     private lazy var session: URLSession = {
@@ -77,10 +79,50 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
         entries[id]?.timings = ["tap": Double(issued)]
         entries[id]?.mark("saved")
         do { try save() } catch { entries = previous; throw error }
-        for id in replaced { CommandAlerts.shared.clear(id) }
-        // Only the background upload submits. UI lifetime never owns delivery.
-        do { try upload(id) } catch { rejected(id) }
+        for id in replaced {
+            foregroundTasks.removeValue(forKey: id)?.cancel()
+            CommandAlerts.shared.clear(id)
+        }
+        if WKExtension.shared().applicationState == .active { submitForeground(id) }
+        else { continueInBackground(id) }
         expireAfterHandoff(id)
+    }
+    private func submitForeground(_ id: String) {
+        guard let entry = entries[id], entry.awaitingHandoff(),
+              entry.matchesCurrentTarget(Vault.load()),
+              let body = (try? JSONSerialization.jsonObject(with: entry.body)) as? [String: Any] else { return }
+        trace(id, "foreground_submit")
+        foregroundTasks[id] = Task { [weak self] in
+            guard let self else { return }
+            defer { self.foregroundTasks.removeValue(forKey: id) }
+            do {
+                let state = try await Integration(entry.connection, http: self.foregroundHTTP).request(body)
+                guard !Task.isCancelled else { return }
+                self.outcome(id, state: state)
+                if self.entries[id]?.awaitingHandoff() == true { self.continueInBackground(id) }
+            } catch {
+                guard !Task.isCancelled, self.entries[id]?.awaitingHandoff() == true else { return }
+                let code = (error as NSError).code
+                self.trace(id, "foreground_error_" + String(code))
+                self.continueInBackground(id)
+            }
+        }
+    }
+    // Called on wrist-down/app inactivity, independently of page navigation.
+    func appInactive() {
+        for id in Array(foregroundTasks.keys) { continueInBackground(id) }
+    }
+    private func continueInBackground(_ id: String) {
+        guard var entry = entries[id], entry.matchesCurrentTarget(Vault.load()),
+              entry.beginBackgroundContinuation() else { return }
+        entries[id] = entry
+        do { try save() } catch { rejected(id); return }
+        trace(id, "background_continuation")
+        do { try upload(id) }
+        catch {
+            trace(id, "background_setup_error_" + String((error as NSError).code))
+            if foregroundTasks[id] == nil { rejected(id) }
+        }
     }
     private func upload(_ id: String) throws {
         guard let entry = entries[id], entry.awaitingHandoff(),
@@ -111,6 +153,8 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
     func clear() {
         for id in entries.keys { CommandAlerts.shared.clear(id) }
         UserDefaults.standard.removeObject(forKey: "commandTimingEvents")
+        for task in foregroundTasks.values { task.cancel() }
+        foregroundTasks.removeAll()
         entries.removeAll(); SecureCommandStorage.clear()
         session.getAllTasks { tasks in for task in tasks { task.cancel() } }
     }
@@ -133,7 +177,7 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
                         self.rejected(entry.id)
                     } else {
                         // Never resubmit an ambiguously delivered command on reopening.
-                        if !active.contains(entry.id) { self.rejected(entry.id) }
+                        if !active.contains(entry.id) && self.foregroundTasks[entry.id] == nil { self.rejected(entry.id) }
                         else { self.expireAfterHandoff(entry.id) }
                     }
                 }
@@ -147,6 +191,7 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
         entry.mark(entry.accepted ? "ack_received" : "handoff_failed")
         entry.result = try? JSONSerialization.data(withJSONObject: state)
         entries[id] = entry
+        if entry.accepted { foregroundTasks[id]?.cancel() }
         trace(id, entry.accepted ? (entry.acknowledgedDuringHandoff ? "receipt_saved" : "late_receipt_saved") : "failure_saved")
         CommandAlerts.shared.outcome(id, state: state)
         logger.info("operation=\(id, privacy: .public) status=\(state["operation_status"] as? String ?? "unknown", privacy: .public)")
@@ -163,6 +208,7 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
     }
     func rejected(_ id: String) {
         guard entries[id]?.accepted == false, entries[id]?.result == nil else { return }
+        foregroundTasks.removeValue(forKey: id)?.cancel()
         outcome(id, state: ["operation_id": id, "operation_status": "failed", "reason": "Request rejected", "local_error": true])
         session.getAllTasks { tasks in
             for task in tasks where task.taskDescription?.components(separatedBy: "|").first == id { task.cancel() }
@@ -194,10 +240,10 @@ extension Notification.Name { static let commandOutcomeSaved = Notification.Name
                 // Outcome policy still rejects wrong targets and stale terminal regressions.
                 self.outcome(entry.id, state: result)
                 if !CommandPolicy.owns(result), self.entries[entry.id]?.result == nil { self.rejected(entry.id) }
-            } else if code >= 400 && code < 500 && code != 429 {
-                self.rejected(entry.id)
             } else {
-                self.rejected(entry.id)
+                self.trace(entry.id, "background_error_http_" + String(code) + "_code_" + String((error as NSError?)?.code ?? 0))
+                // A failed continuation cannot override a foreground receipt still in flight.
+                if self.foregroundTasks[entry.id] == nil { self.rejected(entry.id) }
             }
         }
     }

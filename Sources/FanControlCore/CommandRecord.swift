@@ -16,6 +16,13 @@ public struct CommandRecord: Codable {
         let age = now.timeIntervalSince(issued)
         return !accepted && result == nil && age >= 0 && age < Connection.handoffSeconds
     }
+    // Persist this boundary before scheduling: inactivity and a transport failure
+    // may race, but must schedule at most one continuation of the captured intent.
+    public mutating func beginBackgroundContinuation(now: Date = Date()) -> Bool {
+        guard awaitingHandoff(now: now), timings?["background_continuation"] == nil else { return false }
+        mark("background_continuation", at: now)
+        return true
+    }
     // Receipt evidence can arrive after the UI deadline, but only for this pairing/target.
     public func matchesCurrentTarget(_ current: Connection?) -> Bool {
         guard let current, current.watch_id == connection.watch_id, current.token == connection.token,
