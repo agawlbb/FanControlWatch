@@ -283,7 +283,7 @@ import FanControlCore
         if let intent = activeIntent { CommandAlerts.shared.clear(intent.id) }
         if busy { feedback?.phase = .unconfirmed }; commandPending = false
     }
-    func receiveCompanion() {
+    func receiveCompanion(_ snapshot: CompanionSnapshot?) {
         guard let saved = Vault.load() else { return }
         // Invalidate older navigation even when a command defers visible selection.
         _ = defaultTile.load(saved)
@@ -300,7 +300,14 @@ import FanControlCore
             enter(resetSelection: true, allowEntryWake: visible)
         } else if visible, let d = device, d.panel?.type == "on_duty" {
             observed = ObservationCache.shared.load(saved, d)
-            stateFresh = VisibleStateRefresh.available(observed, for: d)
+            stateFresh = false
+            if let snapshot, let source = try? snapshot.resolved(for: saved), source.sameTarget(as: saved),
+               let raw = snapshot.states[d.entity],
+               let state = try? JSONSerialization.jsonObject(with: raw) as? [String: Any],
+               VisibleStateRefresh.available(state, for: d) {
+                observed = state
+                stateFresh = true
+            }
         } else if !stateFresh, let d = device {
             observed = ObservationCache.shared.load(saved, d)
             // A passive snapshot cannot cancel the active entry coordinator or confirm a command.

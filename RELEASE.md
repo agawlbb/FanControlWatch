@@ -1,3 +1,24 @@
+# On Duty last-known flight cache — 0.10.1 (25), November 5, 2026
+
+Fix task `fix/on-duty-cache` starts at fetched canonical main
+`d572d6fe14338c47d083ac98cef627bcda16a2ae`.
+
+On Duty previously opened with placeholders because the shared observation cache
+never retained its city-pair and departure fields. It now saves one complete valid
+flight observation from entry reads and phone snapshots, and reopens with that
+last-known flight in gray. Invalid, unavailable or partial updates do not erase it
+or combine different flights. Fresh phone snapshots pass their actual observation
+to the visible tile, so availability is taken from the update rather than inferred
+from saved data. Cached values never carry freshness; watch/roles/credential scope
+remains unchanged. No HA, relay or automation changes are required.
+
+Regression checks cover cache recreation, gray saved data, complete replacement,
+unavailable/partial updates, and watch/role isolation. Mac validation and signed
+release evidence will be recorded after completion. Physical checks remain for
+stored gray data at opening and teal after a successful update on the paired watch.
+
+---
+
 # On Duty tile and readable messages — 0.10.0 (24), November 5, 2026
 
 Release task `release/on-duty` starts at canonical main

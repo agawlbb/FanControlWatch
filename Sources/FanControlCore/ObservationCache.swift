@@ -20,6 +20,14 @@ public final class ObservationCache: @unchecked Sendable {
     }
     public func save(_ state: [String: Any], connection: Connection, device: Device) {
         var valid: [String: Any] = [:]
+        if device.panel?.type == "on_duty", state["available"] as? Bool == true,
+           let cityPair = state["city_pair"] as? String, !cityPair.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let departure = state["departure"] as? String, FlightPresentation.departure(departure) != nil {
+            // Retain one complete flight observation. Availability is live evidence,
+            // never a persisted permission to recolor saved data on opening.
+            valid["city_pair"] = cityPair
+            valid["departure"] = departure
+        }
         if ["on", "off"].contains(state["state"] as? String ?? "") {
             valid["state"] = state["state"]
             if let attrs = state["attributes"] as? [String: Any], let percentage = attrs["percentage"] as? Int, (0...100).contains(percentage) {

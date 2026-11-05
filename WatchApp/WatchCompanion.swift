@@ -70,7 +70,7 @@ extension Notification.Name { static let companionSnapshotSaved = Notification.N
                 }
                 UserDefaults.standard.set(snapshot.sequence, forKey: key)
                 PushDiagnostics.shared.record("watch_saved", connection: next, updateID: snapshot.updateID)
-                NotificationCenter.default.post(name: .companionSnapshotSaved, object: nil)
+                NotificationCenter.default.post(name: .companionSnapshotSaved, object: snapshot)
                 session.transferUserInfo(["watch_saved": snapshot.sequence, "update_id": snapshot.updateID ?? "", "watch_id": c.watch_id])
             } catch { }
     }

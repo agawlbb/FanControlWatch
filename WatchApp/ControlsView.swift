@@ -48,7 +48,9 @@ struct ControlsView: View {
         .onReceive(NotificationCenter.default.publisher(for: .commandOutcomeSaved)) { note in
             if let id = note.object as? String { model.refreshCommandOutcome(id) }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .companionSnapshotSaved)) { _ in model.receiveCompanion() }
+        .onReceive(NotificationCenter.default.publisher(for: .companionSnapshotSaved)) { note in
+            model.receiveCompanion(note.object as? CompanionSnapshot)
+        }
         .onLongPressGesture { setup = true }
         // Navigation must win over child buttons. A simultaneous drag lets the
         // same touch also activate an HA control and schedule a delayed alert.
