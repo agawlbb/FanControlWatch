@@ -1,3 +1,29 @@
+# On Duty tile and readable messages — 0.10.0 (24), November 5, 2026
+
+Release task `release/on-duty` starts at canonical main
+`22491332d579e154cc74045ae25d3dd9cef17537`. Requires HA 0.12.0.
+Phone, watch and complication use version **0.10.0**, build **24**.
+
+- On Duty displays FlightSync's city pair, departure time and local countdown;
+  no flight number. Existing snapshots and entry reads preserve gray stored data
+  and teal fresh data.
+- The iPhone stores full automation messages and opens their text on notification
+  taps, including cold launch and taps while Settings or a refresh is active.
+- FlightSync arrival clears all messages from view in the iPhone app via HA.
+  Notification Center is unchanged.
+
+Pre-release checks: 78 Swift tests and iPhone/watch source typechecks passed on
+Mac run https://github.com/agawlbb/FanControlWatch/actions/runs/42040629167.
+297 HA integration tests and eight relay tests passed; Python compilation passed.
+Signed archive, upload and Apple processing verification are pending this release.
+
+Remaining physical checks: background updates; gray → teal rendering; departure
+and countdown timezone display; full text on cold/warm notification taps; and
+arrival clearing after phone suspension. Automated checks do not prove device
+rendering, APNs receipt or OS background scheduling.
+
+---
+
 # Foreground command handoff — 0.9.4 (23), November 1, 2026
 
 Published to the existing **Internal** TestFlight group. Apple build
