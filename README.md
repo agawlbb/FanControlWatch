@@ -14,6 +14,27 @@ release passed 75 Swift tests, both simulator builds and signed upload checks.
 
 Independent watchOS 10+ SwiftUI client for the [Fan Control HA integration](https://github.com/agawlbb/FanControlHA), ported from [Android 1.5.3](https://github.com/agawlbb/FanControl/tree/841587d42c391afaac4df77621c7428dd250b2c9).
 
+## Home Assistant automation alerts
+
+This source adds **Settings → Notifications → Enable notifications** to the
+Fan Control iPhone app. Enable alerts after linking the phone; if permission is
+denied, **Notification settings** opens the app's iOS notification settings.
+Foreground alerts are also presented for the currently linked watch.
+
+With HA integration 0.11.0 and the matching updated relay, an automation can call
+`fan_control.send_notification`, choosing the Fan Control watch device, title and
+message. Alerts go directly to **Fan Control on iPhone** (`dev.fancontrol.watch`),
+without the Home Assistant Companion app or background app execution. Apple may
+present them on the paired watch, subject to normal routing/notification settings.
+Watch command failure alerts keep their existing separate destination.
+
+Development task: `feature/automation-notifications`, based on canonical main
+`23350d94ece53fb641d7543b4c9d1f7fbd839777`. No app release, relay deployment or HA
+restart is performed by these source changes. A future app build is required;
+paired-device checks must cover permission allowed/denied, foreground/background
+phone, locked/unlocked phone and watch, Focus/mirroring, and unlink/revocation.
+APNs acceptance alone does not prove delivery or that a user saw the alert.
+
 ## iPhone companion — 0.6.0 (15)
 
 The iOS 17+ companion manages fixed watch swipe order, preferred headset, and

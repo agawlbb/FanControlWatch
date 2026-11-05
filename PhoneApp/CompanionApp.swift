@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import BackgroundTasks
+import UserNotifications
 import FanControlCore
 
 @main struct CompanionApp: App {
@@ -15,9 +16,10 @@ import FanControlCore
     }
 }
 
-final class PhoneDelegate: NSObject, UIApplicationDelegate {
+final class PhoneDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     static let refreshID = "dev.fancontrol.watch.phone.refresh"
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
         _ = PhoneModel.shared
         BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.refreshID, using: .main) { task in
             Task { @MainActor in
@@ -30,6 +32,18 @@ final class PhoneDelegate: NSObject, UIApplicationDelegate {
         }
         application.registerForRemoteNotifications()
         return true
+    }
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        let hint = notification.request.content.userInfo["fancontrol"] as? [String: Any]
+        Task { @MainActor in
+            guard hint?["notification"] as? Bool == true,
+                  let connection = PhoneModel.shared.connection,
+                  hint?["watch_id"] as? String == connection.watch_id else {
+                completionHandler([]); return
+            }
+            completionHandler([.banner, .list, .sound])
+        }
     }
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         PhoneModel.shared.pushToken = deviceToken.map { String(format: "%02x", $0) }.joined()
