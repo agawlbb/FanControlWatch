@@ -18,11 +18,13 @@ HA automation clears all messages; the next successful snapshot removes them
 from view, including an open message. Notification Center is unchanged.
 Unlinking or replacing the pairing clears private local messages.
 
-Two HA automations were created disabled, pending installation and panel setup:
+The On Duty panel is configured and these two HA automations are enabled:
 `automation.joe_watch_on_duty_tile` and
 `automation.joe_watch_flightsync_messages`. See the HA repository's ON-DUTY.md.
-No FlightSync or relay change is required. No TestFlight release, app installation,
-HA deployment or restart was performed.
+No FlightSync or relay change is required. Version 0.10.0 (24) is published to the
+existing Internal TestFlight group;
+HA 0.12.0 is deployed and loaded after one validated restart. Phone/watch app
+installation and remaining physical checks are user/device actions.
 
 Validation: all 78 Swift core tests and iPhone/watch source typechecks passed on
 [Mac core-tests run 42040629167](https://github.com/agawlbb/FanControlWatch/actions/runs/42040629167),

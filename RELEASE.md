@@ -15,7 +15,21 @@ Phone, watch and complication use version **0.10.0**, build **24**.
 Pre-release checks: 78 Swift tests and iPhone/watch source typechecks passed on
 Mac run https://github.com/agawlbb/FanControlWatch/actions/runs/42040629167.
 297 HA integration tests and eight relay tests passed; Python compilation passed.
-Signed archive, upload and Apple processing verification are pending this release.
+Signed source: `e70abe5fb451daa86a35729ab91e53f37dd11585`.
+Signed archive/export, signature and production APNs entitlement checks, upload,
+Apple processing and assignment to the existing **Internal** group passed:
+https://github.com/agawlbb/FanControlWatch/actions/runs/42042238583
+Apple build `28b6c495-b6b1-4d38-a274-860da576692b` is `VALID`, not expired,
+`IN_BETA_TESTING`, with no non-exempt encryption. Marketing version is 0.10.0.
+The immutable release tag is `v0.10.0-build24` at the signed source commit.
+
+HA 0.12.0 source `f4bff5e215f83e2912029cee9019c25d7f4bc96e` was deployed
+through File editor after all ten changed existing files matched installed 0.11.0.
+All eleven updated/new source files read back exactly. HA configuration validation
+passed and one Core restart loaded 0.12.0. Pairing, credentials, existing panels
+and prior active selection were preserved. The On Duty panel uses FlightSync's
+Flight airports and Flight start sensors. Both prepared automations are enabled;
+no physical command or synthetic flight notification was sent as validation.
 
 Remaining physical checks: background updates; gray → teal rendering; departure
 and countdown timezone display; full text on cold/warm notification taps; and

@@ -1,6 +1,6 @@
 # Fan Control for iPhone and Apple Watch
 
-**Current TestFlight release:** 0.9.4 (23), with HA 0.10.0 and the updated
+**Current TestFlight release:** 0.10.0 (24), with HA 0.12.0 and the updated
 command outcome relay. See [release evidence](RELEASE.md) and
 [the implementation record](UNRELEASED-CORRECTIONS.md).
 
@@ -28,12 +28,9 @@ without the Home Assistant Companion app or background app execution. Apple may
 present them on the paired watch, subject to normal routing/notification settings.
 Watch command failure alerts keep their existing separate destination.
 
-Development task: `feature/automation-notifications`, based on canonical main
-`23350d94ece53fb641d7543b4c9d1f7fbd839777`. No app release, relay deployment or HA
-restart is performed by these source changes. A future app build is required;
-paired-device checks must cover permission allowed/denied, foreground/background
-phone, locked/unlocked phone and watch, Focus/mirroring, and unlink/revocation.
-APNs acceptance alone does not prove delivery or that a user saw the alert.
+Automation alerts and readable in-app messages are included in 0.10.0 (24).
+Paired-device checks remain for notification permission, foreground/background
+and locked/unlocked phone/watch behavior, Focus/mirroring, and unlink/revocation.
 
 ## iPhone companion — 0.6.0 (15)
 
@@ -80,7 +77,7 @@ For instructions to run tests, build on GitHub's Mac runner, configure Apple
 signing credentials, and publish to internal TestFlight directly from this
 repository, see [GitHub builds and TestFlight setup](GITHUB-TESTFLIGHT.md).
 
-Current version: **0.9.4 (23)**; iOS 17+, watchOS 10+, HA 0.10.0. Published to the existing Internal TestFlight group.
+Current version: **0.10.0 (24)**; iOS 17+, watchOS 10+, HA 0.12.0. Published to the existing Internal TestFlight group.
 `swift test` runs core regression tests. XcodeGen uses `project.yml` to generate
 the iPhone, watch and complication targets. Existing GitHub workflows compile
 simulators/archive on main pushes and build/upload TestFlight only by explicit
@@ -119,4 +116,4 @@ restarting Activated feedback. Receipt does not prove physical completion.
 
 ## On Duty tile and readable messages
 
-See [implementation and activation](ON-DUTY.md). Requires HA 0.12.0 and the matching app update; not yet released.
+See [implementation and activation](ON-DUTY.md). Released in 0.10.0 (24), with HA 0.12.0.
