@@ -24,7 +24,8 @@ Two HA automations were created disabled, pending installation and panel setup:
 No FlightSync or relay change is required. No TestFlight release, app installation,
 HA deployment or restart was performed.
 
-Validation: core tests and iPhone/watch source typechecks run on the existing Mac
-core-tests workflow. Release/device checks still needed: stored gray → updated teal,
+Validation: all 78 Swift core tests and iPhone/watch source typechecks passed on
+[Mac core-tests run 42039898195](https://github.com/agawlbb/FanControlWatch/actions/runs/42039898195),
+commit `869a48c003d1dc8a1166606760ba783738383089`. Release/device checks still needed: stored gray → updated teal,
 local countdown and timezone rendering, notifications tapped with phone app cold
 and warm, and arrival clearing on refresh after phone suspension.
