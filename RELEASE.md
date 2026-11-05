@@ -13,9 +13,22 @@ from saved data. Cached values never carry freshness; watch/roles/credential sco
 remains unchanged. No HA, relay or automation changes are required.
 
 Regression checks cover cache recreation, gray saved data, complete replacement,
-unavailable/partial updates, and watch/role isolation. Mac validation and signed
-release evidence will be recorded after completion. Physical checks remain for
-stored gray data at opening and teal after a successful update on the paired watch.
+unavailable/partial updates, and watch/role isolation. All **80 Swift tests** and
+watch/iPhone source typechecks passed:
+https://github.com/agawlbb/FanControlWatch/actions/runs/42054731006
+
+Signed source: `2f837fb8e7d655da29a8af0aea50b8b1746bb1f1`.
+Signed archive/export, signature/APNs entitlement checks, upload, Apple processing
+and assignment to the existing **Internal** TestFlight group passed:
+https://github.com/agawlbb/FanControlWatch/actions/runs/42055189243
+Apple build `f3242c18-023a-48af-8bb5-9b822904f959` is `VALID`, not expired,
+`IN_BETA_TESTING`, with marketing version 0.10.1 and no non-exempt encryption.
+Immutable tag: `v0.10.1-build25` at the signed source commit.
+
+No HA deployment or automation changes were made for this fix. After upgrading,
+one successful refresh seeds the previously missing flight cache; subsequent
+openings retain that flight in gray until fresh data arrives. Physical checks
+remain for gray opening and teal update rendering on the paired watch.
 
 ---
 

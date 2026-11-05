@@ -31,3 +31,23 @@ Validation: all 78 Swift core tests and iPhone/watch source typechecks passed on
 commit `ce2db5ee20b0541808afc2cdf50104df83033b7c`. Release/device checks still needed: stored gray → updated teal,
 local countdown and timezone rendering, notifications tapped with phone app cold
 and warm, and arrival clearing on refresh after phone suspension.
+
+## Gray opening display correction — 0.10.1 (25)
+
+The original On Duty implementation omitted its fields from ObservationCache,
+so a live flight could be displayed but was not saved for the next opening.
+The correction retains one complete valid city-pair/departure observation from
+entry reads and phone snapshots. Saved data contains no availability/freshness
+flag; opening still starts gray. An incoming available snapshot supplies the
+actual live state for teal presentation. Unavailable/partial updates preserve
+the saved pair and departure together, gray. Existing credential/watch/role scope
+is retained. No HA or automation changes are needed.
+
+All 80 Swift tests and iPhone/watch source typechecks passed on
+https://github.com/agawlbb/FanControlWatch/actions/runs/42054731006.
+After upgrading, one successful update seeds the cache if no earlier flight data
+was saved by the previous build. Paired-watch opening/rendering checks remain.
+
+The correction is published as 0.10.1 (25) to the existing Internal TestFlight group.
+Apple processing and assignment passed in run
+https://github.com/agawlbb/FanControlWatch/actions/runs/42055189243.

@@ -1,6 +1,6 @@
 # Fan Control for iPhone and Apple Watch
 
-**Current TestFlight release:** 0.10.0 (24), with HA 0.12.0 and the updated
+**Current TestFlight release:** 0.10.1 (25), with HA 0.12.0 and the updated
 command outcome relay. See [release evidence](RELEASE.md) and
 [the implementation record](UNRELEASED-CORRECTIONS.md).
 
@@ -77,7 +77,7 @@ For instructions to run tests, build on GitHub's Mac runner, configure Apple
 signing credentials, and publish to internal TestFlight directly from this
 repository, see [GitHub builds and TestFlight setup](GITHUB-TESTFLIGHT.md).
 
-Current version: **0.10.0 (24)**; iOS 17+, watchOS 10+, HA 0.12.0. Published to the existing Internal TestFlight group.
+Current version: **0.10.1 (25)**; iOS 17+, watchOS 10+, HA 0.12.0. Published to the existing Internal TestFlight group.
 `swift test` runs core regression tests. XcodeGen uses `project.yml` to generate
 the iPhone, watch and complication targets. Existing GitHub workflows compile
 simulators/archive on main pushes and build/upload TestFlight only by explicit
@@ -117,3 +117,4 @@ restarting Activated feedback. Receipt does not prove physical completion.
 ## On Duty tile and readable messages
 
 See [implementation and activation](ON-DUTY.md). Released in 0.10.0 (24), with HA 0.12.0.
+Version 0.10.1 (25) fixes the last-known gray flight display on opening.
