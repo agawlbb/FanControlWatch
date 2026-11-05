@@ -1,6 +1,8 @@
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 import FanControlCore
+import UserNotifications
 
 struct CompanionView: View {
     @ObservedObject private var model = PhoneModel.shared
@@ -85,6 +87,10 @@ struct CompanionView: View {
 private struct SettingsView: View {
     @ObservedObject private var model = PhoneModel.shared
     @State private var headset = ""
+    @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var enablingNotifications = false
+    @Environment(\.scenePhase) private var phase
+    @Environment(\.openURL) private var openURL
     var body: some View {
         Form {
             Section("Headset") {
@@ -92,6 +98,29 @@ private struct SettingsView: View {
                     .autocorrectionDisabled()
                     .onSubmit { model.settings.headset = headset; model.saveSettings() }
                 Button("Save") { model.settings.headset = headset; model.saveSettings() }.disabled(model.saving)
+            }
+            Section("Notifications") {
+                if notificationStatus == .notDetermined {
+                    Button("Enable notifications") {
+                        enablingNotifications = true
+                        Task { @MainActor in
+                            defer { enablingNotifications = false }
+                            do {
+                                _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+                                notificationStatus = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+                                UIApplication.shared.registerForRemoteNotifications()
+                                await model.registerPush()
+                            } catch { model.error = "Could not enable notifications. Try again." }
+                        }
+                    }.disabled(enablingNotifications)
+                } else {
+                    LabeledContent("Alerts", value: notificationStatus == .denied ? "Disabled" : "Allowed")
+                    Button("Notification settings") {
+                        if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
+                    }
+                }
+                Text("Home Assistant automations can send alerts to this iPhone. They may appear on your Apple Watch depending on your settings.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Connection") {
                 LabeledContent("Watch", value: model.reachable ? "Connected" : "Unavailable")
@@ -110,5 +139,8 @@ private struct SettingsView: View {
             if !model.error.isEmpty { Text(model.error).foregroundStyle(.red) }
         }.navigationTitle("Settings")
             .onAppear { headset = model.settings.headset }
+            .task(id: phase) {
+                notificationStatus = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+            }
     }
 }
