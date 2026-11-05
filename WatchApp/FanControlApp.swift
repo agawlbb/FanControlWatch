@@ -298,6 +298,9 @@ import FanControlCore
         connection = saved
         if !same || selectedChanged {
             enter(resetSelection: true, allowEntryWake: visible)
+        } else if visible, let d = device, d.panel?.type == "on_duty" {
+            observed = ObservationCache.shared.load(saved, d)
+            stateFresh = VisibleStateRefresh.available(observed, for: d)
         } else if !stateFresh, let d = device {
             observed = ObservationCache.shared.load(saved, d)
             // A passive snapshot cannot cancel the active entry coordinator or confirm a command.

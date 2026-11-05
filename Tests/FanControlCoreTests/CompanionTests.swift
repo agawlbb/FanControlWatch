@@ -22,6 +22,15 @@ final class CompanionTests: XCTestCase {
         var phone = c; phone.token = String(repeating: "c", count: 64); phone.companion = true
         let snapshot = try CompanionSnapshot(response: ["configuration": config,
             "states": ["fan.test": ["state": "on"]], "sequence": 2, "at_ms": Int64(1000)], connection: phone)
+        XCTAssertNil(snapshot.messages) // Older HA snapshots retain locally readable alerts.
+        let withMessages = try CompanionSnapshot(response: ["configuration": config,
+            "states": ["fan.test": ["state": "on"]], "sequence": 3, "at_ms": Int64(2000),
+            "messages": [["id": "alert", "title": "Delay", "message": "Read the complete message", "at_ms": 1000]]], connection: phone)
+        XCTAssertEqual(withMessages.messages?.first?.message, "Read the complete message")
+        let cleared = try CompanionSnapshot(response: ["configuration": config,
+            "states": ["fan.test": ["state": "on"]], "sequence": 4, "at_ms": Int64(3000),
+            "messages": []], connection: phone)
+        XCTAssertEqual(cleared.messages, []) // Arrival explicitly clears instead of leaving an old list.
         XCTAssertEqual(try snapshot.resolved(for: c).token, c.token)
         XCTAssertNil(try snapshot.resolved(for: c).companion)
         var other = c; other.watch_id = String(repeating: "d", count: 32)

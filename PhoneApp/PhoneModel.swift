@@ -2,12 +2,15 @@ import Foundation
 import SwiftUI
 import WatchConnectivity
 import BackgroundTasks
+import UserNotifications
 import FanControlCore
 
 @MainActor final class PhoneModel: NSObject, ObservableObject, WCSessionDelegate {
     static let shared = PhoneModel()
     @Published private(set) var connection = Vault.load()
     @Published var settings = CompanionSettings()
+    @Published private(set) var messages: [AppMessage] = []
+    @Published var selectedMessage: AppMessage?
     @Published var error = ""
     @Published private(set) var reachable = false
     @Published private(set) var refreshedAt: Date?
@@ -26,6 +29,7 @@ import FanControlCore
         if let c = connection { settings = c.companion_settings ?? CompanionSettings() }
         if let raw = defaults.data(forKey: "phoneSnapshot"), let saved = try? JSONDecoder().decode(CompanionSnapshot.self, from: raw),
            let c = connection, (try? saved.resolved(for: c)) != nil { snapshot = saved; refreshedAt = Date(timeIntervalSince1970: Double(saved.atMS) / 1000) }
+        if let raw = defaults.data(forKey: "phoneMessages"), let saved = try? JSONDecoder().decode([AppMessage].self, from: raw), connection != nil { messages = saved }
         events = defaults.stringArray(forKey: "phoneEvents") ?? []
         outbox = defaults.array(forKey: "phoneReceipts") as? [[String: Any]] ?? []
         #if DEBUG && targetEnvironment(simulator)
@@ -46,11 +50,34 @@ import FanControlCore
         #endif
         foregroundWork?.cancel()
         foregroundWork = Task {
+            await loadDeliveredMessages()
             await registerPush()
             while !Task.isCancelled {
                 _ = await refresh()
                 do { try await Task.sleep(for: .seconds(15)) } catch { return }
             }
+        }
+    }
+    private func saveMessages() {
+        if let raw = try? JSONEncoder().encode(messages) { defaults.set(raw, forKey: "phoneMessages") }
+    }
+    private func clearMessages() { messages = []; selectedMessage = nil }
+    func receiveNotification(_ content: UNNotificationContent, open: Bool = false) {
+        guard let hint = content.userInfo["fancontrol"] as? [String: Any],
+              hint["notification"] as? Bool == true,
+              hint["watch_id"] as? String == connection?.watch_id,
+              let id = hint["update_id"] as? String else { return }
+        let item = messages.first { $0.id == id } ?? AppMessage(id: id, title: content.title,
+            message: content.body, atMS: Int64(Date().timeIntervalSince1970 * 1000))
+        if !messages.contains(where: { $0.id == id }) { messages.insert(item, at: 0); saveMessages() }
+        if open { selectedMessage = item }
+    }
+    private func loadDeliveredMessages() async {
+        let notifications = await UNUserNotificationCenter.current().deliveredNotifications()
+        // HA snapshots are authoritative for messages since the last arrival.
+        // Import banners only before the first snapshot after upgrading.
+        if snapshot?.messages == nil {
+            for notification in notifications { receiveNotification(notification.request.content) }
         }
     }
     func background() {
@@ -71,9 +98,9 @@ import FanControlCore
                 _ = try await Integration(c).request(["action": "companion_unlink"])
                 guard connection?.token == c.token else { return }
                 foregroundWork?.cancel(); connection = nil; snapshot = nil; outbox = []; events = []; watchSequence = 0; refreshedAt = nil
-                PhoneLibrary.shared.targetChanged()
+                clearMessages(); PhoneLibrary.shared.targetChanged()
                 Vault.clear()
-                for key in ["phoneSnapshot", "phoneReceipts", "phoneEvents"] { defaults.removeObject(forKey: key) }
+                for key in ["phoneSnapshot", "phoneReceipts", "phoneEvents", "phoneMessages"] { defaults.removeObject(forKey: key) }
                 for transfer in session.outstandingFileTransfers { transfer.cancel() }
                 for transfer in session.outstandingUserInfoTransfers { transfer.cancel() }
                 try? session.updateApplicationContext([:])
@@ -113,6 +140,11 @@ import FanControlCore
         try Vault.save(c)
         defaults.set(try JSONEncoder().encode(next), forKey: "phoneSnapshot")
         connection = c; snapshot = next; settings = c.companion_settings ?? CompanionSettings()
+        if let current = next.messages {
+            messages = current.reversed()
+            if let selectedMessage, !current.contains(where: { $0.id == selectedMessage.id }) { self.selectedMessage = nil }
+            saveMessages()
+        }
         refreshedAt = Date(timeIntervalSince1970: Double(next.atMS) / 1000); error = ""
         publish()
     }
@@ -177,8 +209,8 @@ import FanControlCore
             do {
                 if connection?.token != c.token {
                     snapshot = nil; outbox = []; events = []; watchSequence = 0; refreshedAt = nil
-                    PhoneLibrary.shared.targetChanged()
-                    for key in ["phoneSnapshot", "phoneReceipts", "phoneEvents"] { defaults.removeObject(forKey: key) }
+                    clearMessages(); PhoneLibrary.shared.targetChanged()
+                    for key in ["phoneSnapshot", "phoneReceipts", "phoneEvents", "phoneMessages"] { defaults.removeObject(forKey: key) }
                 }
                 try Vault.save(c); connection = c; settings = c.companion_settings ?? CompanionSettings(); error = ""
                 Task { await registerPush(); _ = await refresh() }
@@ -214,7 +246,7 @@ import FanControlCore
         Task { @MainActor in
             Vault.clear(); self.connection = nil; self.snapshot = nil; self.outbox = []; self.settings = CompanionSettings()
             self.events = []; self.watchSequence = 0; self.refreshedAt = nil; PhoneLibrary.shared.targetChanged()
-            self.defaults.removeObject(forKey: "phoneSnapshot"); self.defaults.removeObject(forKey: "phoneReceipts"); self.defaults.removeObject(forKey: "phoneEvents")
+            self.clearMessages(); self.defaults.removeObject(forKey: "phoneMessages"); self.defaults.removeObject(forKey: "phoneSnapshot"); self.defaults.removeObject(forKey: "phoneReceipts"); self.defaults.removeObject(forKey: "phoneEvents")
             session.activate()
         }
     }

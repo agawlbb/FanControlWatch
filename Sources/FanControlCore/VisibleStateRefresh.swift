@@ -25,6 +25,7 @@ import Foundation
         if ["fan", "light", "switch", "input_boolean"].contains(device.domain) {
             return ["on", "off"].contains(state["state"] as? String ?? "")
         }
+        if device.panel?.type == "on_duty" { return state["available"] as? Bool == true }
         if device.panel != nil { return state["climate_available"] as? Bool == true }
         guard let value = state["state"] as? String else { return false }
         return !["", "unknown", "unavailable"].contains(value)

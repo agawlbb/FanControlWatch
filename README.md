@@ -116,3 +116,7 @@ alert timestamps, and push history. **Refresh diagnostics** reads local evidence
 and removes obsolete local alerts; it sends no command, wake or status poll.
 A late authenticated HA receipt clears obsolete handoff failure evidence without
 restarting Activated feedback. Receipt does not prove physical completion.
+
+## On Duty tile and readable messages
+
+See [implementation and activation](ON-DUTY.md). Requires HA 0.12.0 and the matching app update; not yet released.

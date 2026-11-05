@@ -105,7 +105,25 @@ struct ControlsView: View {
         } else { Text("Controls unavailable").foregroundStyle(.gray) }
     }
     @ViewBuilder private func panel(_ p: Panel) -> some View {
-        if p.type == "driving" {
+        if p.type == "on_duty" {
+            let departure = FlightPresentation.departure(model.observed["departure"] as? String)
+            let fresh = model.stateFresh && model.observed["available"] as? Bool == true
+            VStack(spacing: 12) {
+                Text(model.observed["city_pair"] as? String ?? "—").font(.title2.bold())
+                VStack(spacing: 2) {
+                    Text("Departure").font(.caption)
+                    if let departure { Text(departure, style: .time).font(.title3) }
+                    else { Text("—").font(.title3) }
+                }
+                VStack(spacing: 2) {
+                    Text("Time to go").font(.caption)
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(departure.map { FlightPresentation.timeToGo(departure: $0, now: context.date) } ?? "—")
+                            .font(.title2.monospacedDigit())
+                    }
+                }
+            }.foregroundStyle(fresh ? Color.mint : Color.gray)
+        } else if p.type == "driving" {
             // Five controls fill a two-column, three-row grid; the final cell stays empty.
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 cover("garage", "Garage")

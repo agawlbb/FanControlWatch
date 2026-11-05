@@ -11,6 +11,8 @@ public struct Panel: Codable, Equatable, Sendable {
     public let id: String
     public let type: String
     public let name: String
+    public let city_pair_entity: String?
+    public let departure_entity: String?
     public let battery_entity: String?
     public let climate_entity: String?
     public let fan_entity: String?
@@ -70,7 +72,7 @@ public struct Connection: Codable, Equatable, Sendable {
                   !device.title.isEmpty, device.title.count <= 80 else { throw ControlError.invalidConfiguration }
             if let p = device.panel {
                 try p.validateRoles()
-                guard device.entity == "panel." + p.id, ["fan", "work_morning", "exercise", "driving"].contains(p.type),
+                guard device.entity == "panel." + p.id, ["fan", "work_morning", "exercise", "driving", "on_duty"].contains(p.type),
                       p.color == nil || (p.color!.count == 3 && p.color!.allSatisfy { (0...255).contains($0) }) else { throw ControlError.invalidConfiguration }
             }
         }
@@ -139,6 +141,8 @@ extension Panel {
             guard entity(wake_entity,domains:"button"), entity(awake_entity,domains:"binary_sensor") else { throw ControlError.invalidConfiguration }
         }
         switch type {
+        case "on_duty":
+            guard !vehicle, awake_entity == nil, entity(city_pair_entity, domains: "sensor"), entity(departure_entity, domains: "sensor") else { throw ControlError.invalidConfiguration }
         case "fan":
             guard entity(fan_entity, domains: "fan") else { throw ControlError.invalidConfiguration }
         case "driving":

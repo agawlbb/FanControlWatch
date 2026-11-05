@@ -16,6 +16,17 @@ struct CompanionView: View {
                 if model.connection == nil {
                     Button("Link watch", action: model.link)
                 } else {
+                    Section("Messages") {
+                        if model.messages.isEmpty { Text("No messages").foregroundStyle(.secondary) }
+                        ForEach(model.messages) { message in
+                            Button { model.selectedMessage = message } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(message.title).font(.headline)
+                                    Text(message.message).lineLimit(2).foregroundStyle(.secondary)
+                                }
+                            }.moveDisabled(true).deleteDisabled(true)
+                        }
+                    }
                     Section("Tiles") {
                         ForEach(model.orderedDevices, id: \.entity) { device in
                             HStack {
@@ -67,6 +78,18 @@ struct CompanionView: View {
                 case .success(let urls): library.importFiles(urls)
                 case .failure: library.error = "Import failed"
                 }
+            }
+        }
+        .sheet(item: $model.selectedMessage) { message in
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(message.title).font(.title2.bold())
+                        Text(message.message).textSelection(.enabled)
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding()
+                }
+                .navigationTitle("Message")
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { model.selectedMessage = nil } } }
             }
         }
         .onChange(of: model.connection == nil) { _, unlinked in if unlinked { showingSettings = false } }

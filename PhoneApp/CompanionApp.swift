@@ -42,7 +42,15 @@ final class PhoneDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCe
                   hint?["watch_id"] as? String == connection.watch_id else {
                 completionHandler([]); return
             }
+            PhoneModel.shared.receiveNotification(notification.request.content)
             completionHandler([.banner, .list, .sound])
+        }
+    }
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        Task { @MainActor in
+            PhoneModel.shared.receiveNotification(response.notification.request.content, open: true)
+            completionHandler()
         }
     }
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
