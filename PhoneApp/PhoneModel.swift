@@ -115,13 +115,14 @@ import FanControlCore
     }
     @discardableResult func refresh(updateID: String? = nil) async -> Bool {
         guard let original = connection, !refreshing, !saving else { return false }
+        let readingAtStart = selectedMessage?.id
         refreshing = true; defer { refreshing = false }
         do {
             let response = try await Integration(original).request(["action": "companion_snapshot"])
             try Task.checkCancellation()
             guard connection?.token == original.token else { return false }
             let next = try CompanionSnapshot(response: response, connection: original, updateID: updateID)
-            try install(next, original: original)
+            try install(next, original: original, readingAtStart: readingAtStart)
             record("phone_saved", updateID: updateID)
             await flushReceipts()
             return true
@@ -133,7 +134,7 @@ import FanControlCore
             return false
         }
     }
-    private func install(_ next: CompanionSnapshot, original: Connection) throws {
+    private func install(_ next: CompanionSnapshot, original: Connection, readingAtStart: String? = nil) throws {
         if let old = snapshot, old.watchID == next.watchID, old.sequence >= next.sequence { return }
         let c = try next.resolved(for: original)
         guard (c.revision ?? 0) >= (connection?.revision ?? 0) else { return }
@@ -142,7 +143,9 @@ import FanControlCore
         connection = c; snapshot = next; settings = c.companion_settings ?? CompanionSettings()
         if let current = next.messages {
             messages = current.reversed()
-            if let selectedMessage, !current.contains(where: { $0.id == selectedMessage.id }) { self.selectedMessage = nil }
+            // A refresh started before a notification tap cannot dismiss the newly opened text.
+            if let selectedMessage, selectedMessage.id == readingAtStart,
+               !current.contains(where: { $0.id == selectedMessage.id }) { self.selectedMessage = nil }
             saveMessages()
         }
         refreshedAt = Date(timeIntervalSince1970: Double(next.atMS) / 1000); error = ""

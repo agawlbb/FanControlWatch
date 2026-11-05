@@ -80,23 +80,28 @@ struct CompanionView: View {
                 }
             }
         }
-        .sheet(item: $model.selectedMessage) { message in
-            NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text(message.title).font(.title2.bold())
-                        Text(message.message).textSelection(.enabled)
-                    }.frame(maxWidth: .infinity, alignment: .leading).padding()
-                }
-                .navigationTitle("Message")
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { model.selectedMessage = nil } } }
-            }
-        }
         .onChange(of: model.connection == nil) { _, unlinked in if unlinked { showingSettings = false } }
-        .sheet(isPresented: $showingSettings) {
+        .onChange(of: model.selectedMessage?.id) { _, value in
+            if value != nil { showingSettings = false; importing = false }
+        }
+        .sheet(isPresented: Binding(
+            get: { model.selectedMessage != nil || showingSettings },
+            set: { if !$0 { model.selectedMessage = nil; showingSettings = false } }
+        )) {
             NavigationStack {
-                SettingsView()
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showingSettings = false } } }
+                if let message = model.selectedMessage {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text(message.title).font(.title2.bold())
+                            Text(message.message).textSelection(.enabled)
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding()
+                    }
+                    .navigationTitle("Message")
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { model.selectedMessage = nil } } }
+                } else {
+                    SettingsView()
+                        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showingSettings = false } } }
+                }
             }.environment(\.editMode, .constant(.inactive))
         }
         .onAppear {
