@@ -1,3 +1,9 @@
+## Product scope
+
+Do not add user-facing features, controls, screens or workflows unless the user
+requested them or they are necessary to complete the requested behavior. Ask before
+adding optional UI. Keep changes limited to the requested scope.
+
 ## Foreground command handoff — November 1, 2026
 
 User-authorized task `fix/foreground-command-handoff`, based on canonical main

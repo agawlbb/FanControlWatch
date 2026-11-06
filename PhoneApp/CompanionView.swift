@@ -9,7 +9,6 @@ struct CompanionView: View {
     @ObservedObject private var library = PhoneLibrary.shared
     @State private var importing = false
     @State private var showingSettings = false
-    @State private var editMode: EditMode = .inactive
     var body: some View {
         NavigationStack {
             List {
@@ -68,16 +67,10 @@ struct CompanionView: View {
                     do { try await Task.sleep(for: .seconds(1)) } catch { return }
                 }
             }
-            .environment(\.editMode, $editMode)
             .navigationTitle("Fan Control")
             .tint(.mint)
             .toolbar {
                 if model.connection != nil {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button(editMode.isEditing ? "Done" : "Edit") {
-                            withAnimation { editMode = editMode.isEditing ? .inactive : .active }
-                        }
-                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { showingSettings = true } label: { Image(systemName: "gearshape") }
                             .accessibilityLabel("Settings")
