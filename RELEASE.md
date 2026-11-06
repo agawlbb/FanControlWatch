@@ -1,3 +1,36 @@
+# Tap Delete after swiping — 0.11.1 (27), November 6, 2026
+
+Swipe left on an iPhone message to reveal the native red **Delete** action.
+Only tapping Delete removes it. Full-swipe deletion is disabled and no
+confirmation dialog is shown. The message still opens on a normal tap.
+The list starts outside edit mode so native swipe actions work; **Edit/Done**
+retains tile and exercise-music reordering and music removal.
+Deletion remains local, with the existing notification cleanup and 12-hour expiry.
+
+Published to the existing **Internal** TestFlight group. Apple build
+`6a469e30-a709-4a43-914d-6deb639213c1` is `VALID`, not expired,
+`IN_BETA_TESTING`, marketing version 0.11.1, without non-exempt encryption.
+Update Fan Control in TestFlight to install it.
+
+Signed source: `ef28cc744395fb46aeada90f63016f343d322c9a`.
+Task `fix/message-delete-button` started from canonical main
+`b22cce0558726df7d0fcd7beb8fa935f244a58c8`.
+All **85 Swift core tests**, signed iPhone/watch archive/export,
+signature and production APNs entitlement checks, upload, Apple processing
+and existing internal-group assignment passed:
+https://github.com/agawlbb/FanControlWatch/actions/runs/42248342302
+Release tag: `v0.11.1-build27` at the signed source.
+The one-time release-branch trigger was removed afterward.
+No HA update or restart was needed; deployed HA 0.14.0 remains compatible.
+
+On-device checks remain: a partial or full left swipe leaves the message visible
+with Delete revealed; tapping Delete removes it and its delivered notification;
+tapping elsewhere closes the action without deletion; normal taps still show full
+text; Edit/Done allows tile/music rearrangement. Automated builds do not verify
+physical iPhone gesture rendering or notification receipt.
+
+---
+
 # Phone-only messages — 0.11.0 (26), November 6, 2026
 
 Published to the existing **Internal** TestFlight group. Apple build

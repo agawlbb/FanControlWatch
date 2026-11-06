@@ -1,7 +1,5 @@
 name: TestFlight
 on:
-  push:
-    branches: [fix/message-delete-button]
   workflow_dispatch:
     inputs:
       build_number:
@@ -23,7 +21,7 @@ jobs:
     steps:
       - name: Check build number and signing credential availability
         env:
-          BUILD_NUMBER: ${{ inputs.build_number || '27' }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
@@ -47,8 +45,8 @@ jobs:
       IOS_TEAM_ID: FKR675M7PM
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-      BUILD_NUMBER: ${{ inputs.build_number || '27' }}
-      UPLOAD: ${{ github.event_name == 'push' || inputs.upload }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      UPLOAD: ${{ inputs.upload }}
     steps:
       - uses: actions/checkout@v4
       - name: Prepare existing Apple signing authentication
@@ -83,10 +81,10 @@ jobs:
       - name: Test, build and sign the iPhone and Apple Watch apps
         run: bash scripts/testflight.sh
       - name: Verify Apple processing and existing internal TestFlight access
-        if: ${{ github.event_name == 'push' || inputs.upload }}
+        if: ${{ inputs.upload }}
         run: python3 scripts/check_testflight.py
       - uses: actions/upload-artifact@v4
-        if: ${{ github.event_name != 'push' && !inputs.upload }}
+        if: ${{ !inputs.upload }}
         with:
           name: FanControlWatch-signed
           path: |
@@ -94,7 +92,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Save Apple processing evidence
-        if: ${{ always() && (github.event_name == 'push' || inputs.upload) }}
+        if: ${{ always() && inputs.upload }}
         uses: actions/upload-artifact@v4
         with:
           name: FanControlWatch-TestFlight-processing

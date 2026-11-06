@@ -1,8 +1,8 @@
 # Fan Control for iPhone and Apple Watch
 
-**Current TestFlight release:** 0.11.0 (26), compatible with deployed HA 0.14.0
+**Current TestFlight release:** 0.11.1 (27), compatible with deployed HA 0.14.0
 and direct Apple push delivery. Update Fan Control in TestFlight to activate
-phone-only messages, swipe dismissal and 12-hour expiry. See [release evidence](RELEASE.md) and
+phone-only messages, swipe-to-reveal Delete and 12-hour expiry. See [release evidence](RELEASE.md) and
 [the implementation record](UNRELEASED-CORRECTIONS.md).
 
 Active watch commands now submit immediately through foreground HTTPS, with one
@@ -15,7 +15,7 @@ release passed 85 Swift tests, iPhone/watch source typechecks and signed upload 
 
 Independent watchOS 10+ SwiftUI client for the [Fan Control HA integration](https://github.com/agawlbb/FanControlHA), ported from [Android 1.5.3](https://github.com/agawlbb/FanControl/tree/841587d42c391afaac4df77621c7428dd250b2c9).
 
-## Phone-only messages — 0.11.0 (26)
+## Phone-only messages — 0.11.1 (27)
 
 Messages are saved only on the iPhone. Swipe left on a message to reveal Delete, then tap Delete to remove it,
 including offline. Swiping alone never deletes a message. The same message is removed from Notification
@@ -28,13 +28,13 @@ messages are preserved until dismissed or expired. Unlinking clears local messag
 
 HA 0.14.0 no longer stores message bodies or includes them in snapshots. Flight
 arrival no longer clears messages. No message history is transferred to the watch.
-Missed pushes have no server-side recovery. Install TestFlight 0.11.0 (26) to
-activate swipe dismissal and expiry.
+Missed pushes have no server-side recovery. Install TestFlight 0.11.1 (27) to
+activate swipe-to-reveal Delete and expiry.
 Task `feature/phone-only-messages`, Apple base
 `2aceaaab70d1b5f3a6726b2b72c7b4e260f02777`.
 Swift core tests and iPhone/watch source typechecks passed in
 [run 42237414837](https://github.com/agawlbb/FanControlWatch/actions/runs/42237414837).
-The signed release passed in [run 42241396000](https://github.com/agawlbb/FanControlWatch/actions/runs/42241396000).
+The signed release passed in [run 42248342302](https://github.com/agawlbb/FanControlWatch/actions/runs/42248342302).
 Physical swipe handling, readability and Notification Center cleanup remain checks
 on the installed iPhone update.
 
@@ -107,7 +107,7 @@ For instructions to run tests, build on GitHub's Mac runner, configure Apple
 signing credentials, and publish to internal TestFlight directly from this
 repository, see [GitHub builds and TestFlight setup](GITHUB-TESTFLIGHT.md).
 
-Current version: **0.11.0 (26)**; iOS 17+, watchOS 10+, HA 0.14.0. Published to the existing Internal TestFlight group.
+Current version: **0.11.1 (27)**; iOS 17+, watchOS 10+, HA 0.14.0. Published to the existing Internal TestFlight group.
 `swift test` runs core regression tests. XcodeGen uses `project.yml` to generate
 the iPhone, watch and complication targets. Existing GitHub workflows compile
 simulators/archive on main pushes and build/upload TestFlight only by explicit
