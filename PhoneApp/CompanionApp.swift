@@ -42,14 +42,14 @@ final class PhoneDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCe
                   hint?["watch_id"] as? String == connection.watch_id else {
                 completionHandler([]); return
             }
-            PhoneModel.shared.receiveNotification(notification.request.content)
-            completionHandler([.banner, .list, .sound])
+            let accepted = PhoneModel.shared.receiveNotification(notification.request.content, deliveredAt: notification.date)
+            completionHandler(accepted ? [.banner, .list, .sound] : [])
         }
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         Task { @MainActor in
-            PhoneModel.shared.receiveNotification(response.notification.request.content, open: true)
+            PhoneModel.shared.receiveNotification(response.notification.request.content, deliveredAt: response.notification.date, open: true)
             completionHandler()
         }
     }
@@ -58,6 +58,17 @@ final class PhoneDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCe
         Task { await PhoneModel.shared.registerPush() }
     }
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        if let hint = userInfo["fancontrol"] as? [String: Any], hint["notification"] as? Bool == true,
+           let aps = userInfo["aps"] as? [String: Any], let alert = aps["alert"] as? [String: Any],
+           let title = alert["title"] as? String, let body = alert["body"] as? String {
+            Task { @MainActor in
+                let content = UNMutableNotificationContent()
+                content.title = title; content.body = body; content.userInfo = userInfo
+                let saved = PhoneModel.shared.receiveNotification(content)
+                completionHandler(saved ? .newData : .noData)
+            }
+            return
+        }
         guard let hint = userInfo["fancontrol"] as? [String: Any], hint["refresh"] as? Bool == true,
               hint["watch_id"] as? String == PhoneModel.shared.connection?.watch_id else { completionHandler(.noData); return }
         let update = (hint["update_id"] as? String).flatMap { UUID(uuidString: $0)?.uuidString.lowercased() }
