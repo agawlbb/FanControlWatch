@@ -31,6 +31,10 @@ Missed pushes have no server-side recovery. A new iPhone build is required to
 activate swipe dismissal and expiry; the existing TestFlight build is unchanged.
 Task `feature/phone-only-messages`, Apple base
 `2aceaaab70d1b5f3a6726b2b72c7b4e260f02777`.
+Swift core tests and iPhone/watch source typechecks passed in
+[run 42237414837](https://github.com/agawlbb/FanControlWatch/actions/runs/42237414837).
+Physical swipe handling, readability and Notification Center cleanup need the
+next installed iPhone build; no app release was started by source validation.
 
 ## Home Assistant automation alerts
 
