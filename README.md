@@ -1,7 +1,7 @@
 # Fan Control for iPhone and Apple Watch
 
-**Current TestFlight release:** 0.10.1 (25), with HA 0.12.0 and the updated
-command outcome relay. See [release evidence](RELEASE.md) and
+**Current TestFlight release:** 0.10.1 (25), compatible with deployed HA 0.13.1
+and direct Apple push delivery. No hosted relay or new app build is required. See [release evidence](RELEASE.md) and
 [the implementation record](UNRELEASED-CORRECTIONS.md).
 
 Active watch commands now submit immediately through foreground HTTPS, with one
@@ -21,12 +21,17 @@ Fan Control iPhone app. Enable alerts after linking the phone; if permission is
 denied, **Notification settings** opens the app's iOS notification settings.
 Foreground alerts are also presented for the currently linked watch.
 
-With HA integration 0.11.0 and the matching updated relay, an automation can call
+With HA integration 0.13.1 configured for direct APNs delivery, an automation can call
 `fan_control.send_notification`, choosing the Fan Control watch device, title and
 message. Alerts go directly to **Fan Control on iPhone** (`dev.fancontrol.watch`),
 without the Home Assistant Companion app or background app execution. Apple may
 present them on the paired watch, subject to normal routing/notification settings.
 Watch command failure alerts keep their existing separate destination.
+
+HA holds the APNs signing key privately and sends directly to Apple over HTTP/2.
+The old hosted relay is retired. See the
+[verified HA deployment](https://github.com/agawlbb/FanControlHA/blob/main/DEPLOYMENT-DIRECT-APNS.md).
+This transport migration changes no app payload or pairing contract.
 
 Automation alerts and readable in-app messages are included in 0.10.0 (24).
 Paired-device checks remain for notification permission, foreground/background
@@ -40,7 +45,8 @@ offline watch playback. Files are hash checked and the previous playlist remains
 playable until its complete replacement is installed.
 
 Pair the watch with HA as before, then open both apps and Link watch on iPhone.
-Requires HA 0.7.0 and its updated push relay. The phone receives a separate
+Requires companion support in HA; current HA 0.13.1 sends pushes directly to Apple.
+The phone receives a separate
 observation/preferences key; the watch command key stays on the watch. Unlink
 phone revokes only that key. HA watch revocation revokes both.
 
@@ -77,7 +83,7 @@ For instructions to run tests, build on GitHub's Mac runner, configure Apple
 signing credentials, and publish to internal TestFlight directly from this
 repository, see [GitHub builds and TestFlight setup](GITHUB-TESTFLIGHT.md).
 
-Current version: **0.10.1 (25)**; iOS 17+, watchOS 10+, HA 0.12.0. Published to the existing Internal TestFlight group.
+Current version: **0.10.1 (25)**; iOS 17+, watchOS 10+, HA 0.13.1. Published to the existing Internal TestFlight group.
 `swift test` runs core regression tests. XcodeGen uses `project.yml` to generate
 the iPhone, watch and complication targets. Existing GitHub workflows compile
 simulators/archive on main pushes and build/upload TestFlight only by explicit

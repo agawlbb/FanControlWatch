@@ -173,8 +173,10 @@ User-command terminal failures use HA-owned APNs to a dedicated watch destinatio
 phone snapshot registration cannot replace it. No failure alert for ordinary wake
 or pending delays. A bounded local not-confirmed fallback covers missing HA
 acknowledgment; cancel it when HA ownership is received. Entry-only wake failures
-are diagnostic, not extra user-command alerts. Notification permission, relay
-availability and OS delivery remain prerequisites; APNs acceptance is not receipt.
+are diagnostic, not extra user-command alerts. HA 0.13.1 sends directly to Apple;
+no hosted relay is used. Notification permission, HA-owned APNs signing credentials
+and OS delivery remain prerequisites; APNs acceptance is not receipt. Keep signing
+keys on HA, never in the phone/watch app or source.
 On recovery, reconcile pending/delivered local alerts against the current outbox,
 pairing, target roles, acknowledgment and original issue time. Never replay an
 overdue timer or notify from an orphaned/obsolete callback. Local alert relevance
