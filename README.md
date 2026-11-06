@@ -17,9 +17,9 @@ Independent watchOS 10+ SwiftUI client for the [Fan Control HA integration](http
 
 ## Phone-only messages — 0.11.0 (26)
 
-Messages are saved only on the iPhone. Swipe left on a message to dismiss it
-immediately, including offline. The same message is removed from Notification
-Center. Text uses adaptive black/white system colors in the list and full-text view.
+Messages are saved only on the iPhone. Swipe left on a message to reveal Delete, then tap Delete to remove it,
+including offline. Swiping alone never deletes a message. The same message is removed from Notification
+Center. Use Edit for tile/music reordering. Text uses adaptive black/white system colors in the list and full-text view.
 Messages expire after 12 hours; cleanup runs on app opening and while its UI is
 active, without waiting for HA. Expired banners are removed when the app can run.
 Notifications still in Notification Center are imported at opening with their

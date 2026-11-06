@@ -9,7 +9,7 @@ struct CompanionView: View {
     @ObservedObject private var library = PhoneLibrary.shared
     @State private var importing = false
     @State private var showingSettings = false
-    @State private var editMode: EditMode = .active
+    @State private var editMode: EditMode = .inactive
     var body: some View {
         NavigationStack {
             List {
@@ -25,13 +25,12 @@ struct CompanionView: View {
                                     Text(message.message).lineLimit(2).foregroundStyle(Color.primary)
                                 }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                             }
-                            .simultaneousGesture(DragGesture(minimumDistance: 30).onEnded { drag in
-                                if drag.translation.width < -70, abs(drag.translation.width) > 2 * abs(drag.translation.height) {
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button("Delete", role: .destructive) {
                                     withAnimation { model.dismissMessage(message.id) }
                                 }
-                            })
-                            .accessibilityAction(named: "Dismiss") { model.dismissMessage(message.id) }
-                            .moveDisabled(true).deleteDisabled(true)
+                            }
+                            .moveDisabled(true)
                         }
                     }
                     Section("Tiles") {
@@ -74,6 +73,11 @@ struct CompanionView: View {
             .tint(.mint)
             .toolbar {
                 if model.connection != nil {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(editMode.isEditing ? "Done" : "Edit") {
+                            withAnimation { editMode = editMode.isEditing ? .inactive : .active }
+                        }
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { showingSettings = true } label: { Image(systemName: "gearshape") }
                             .accessibilityLabel("Settings")
