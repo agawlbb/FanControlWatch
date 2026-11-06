@@ -21,10 +21,17 @@ struct CompanionView: View {
                         ForEach(model.messages) { message in
                             Button { model.selectedMessage = message } label: {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(message.title).font(.headline)
-                                    Text(message.message).lineLimit(2).foregroundStyle(.secondary)
+                                    Text(message.title).font(.headline).foregroundStyle(Color.primary)
+                                    Text(message.message).lineLimit(2).foregroundStyle(Color.primary)
+                                }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                            }
+                            .simultaneousGesture(DragGesture(minimumDistance: 30).onEnded { drag in
+                                if drag.translation.width < -70, abs(drag.translation.width) > 2 * abs(drag.translation.height) {
+                                    withAnimation { model.dismissMessage(message.id) }
                                 }
-                            }.moveDisabled(true).deleteDisabled(true)
+                            })
+                            .accessibilityAction(named: "Dismiss") { model.dismissMessage(message.id) }
+                            .moveDisabled(true).deleteDisabled(true)
                         }
                     }
                     Section("Tiles") {
@@ -58,6 +65,7 @@ struct CompanionView: View {
             .task {
                 while !Task.isCancelled {
                     library.updateProgress()
+                    model.expireMessages()
                     do { try await Task.sleep(for: .seconds(1)) } catch { return }
                 }
             }
@@ -92,8 +100,8 @@ struct CompanionView: View {
                 if let message = model.selectedMessage {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
-                            Text(message.title).font(.title2.bold())
-                            Text(message.message).textSelection(.enabled)
+                            Text(message.title).font(.title2.bold()).foregroundStyle(Color.primary)
+                            Text(message.message).foregroundStyle(Color.primary).textSelection(.enabled)
                         }.frame(maxWidth: .infinity, alignment: .leading).padding()
                     }
                     .navigationTitle("Message")

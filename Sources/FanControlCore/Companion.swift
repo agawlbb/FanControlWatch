@@ -19,16 +19,12 @@ public struct CompanionSnapshot: Codable, Sendable {
     public let watchID: String
     public let server: String
     public let updateID: String?
-    public let messages: [AppMessage]?
     public init(response: [String: Any], connection: Connection, updateID: String? = nil) throws {
         guard var config = response["configuration"] as? [String: Any],
               let observations = response["states"] as? [String: [String: Any]],
               let sequence = response["sequence"] as? Int, sequence > 0,
               let at = response["at_ms"] as? Int64 else { throw ControlError.invalidResponse }
         for key in ["token", "secret", "watch_id", "companion"] { config.removeValue(forKey: key) }
-        if let raw = response["messages"] {
-            messages = try JSONDecoder().decode([AppMessage].self, from: JSONSerialization.data(withJSONObject: raw))
-        } else { messages = nil }
         configuration = try JSONSerialization.data(withJSONObject: config)
         states = try observations.mapValues { try JSONSerialization.data(withJSONObject: $0) }
         self.sequence = sequence; atMS = at; watchID = connection.watch_id; server = connection.url; self.updateID = updateID

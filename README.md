@@ -14,6 +14,28 @@ release passed 75 Swift tests, both simulator builds and signed upload checks.
 
 Independent watchOS 10+ SwiftUI client for the [Fan Control HA integration](https://github.com/agawlbb/FanControlHA), ported from [Android 1.5.3](https://github.com/agawlbb/FanControl/tree/841587d42c391afaac4df77621c7428dd250b2c9).
 
+## Phone-only messages — next iPhone build
+
+Messages are saved only on the iPhone. Swipe left on a message to dismiss it
+immediately, including offline. The same message is removed from Notification
+Center. Text uses adaptive black/white system colors in the list and full-text view.
+Messages expire after 12 hours; cleanup runs on app opening and while its UI is
+active, without waiting for HA. Expired banners are removed when the app can run.
+Notifications still in Notification Center are imported at opening with their
+original age; dismissed or expired messages do not return. Existing saved phone
+messages are preserved until dismissed or expired. Unlinking clears local messages.
+
+HA 0.14.0 no longer stores message bodies or includes them in snapshots. Flight
+arrival no longer clears messages. No message history is transferred to the watch.
+Missed pushes have no server-side recovery. A new iPhone build is required to
+activate swipe dismissal and expiry; the existing TestFlight build is unchanged.
+Task `feature/phone-only-messages`, Apple base
+`2aceaaab70d1b5f3a6726b2b72c7b4e260f02777`.
+Swift core tests and iPhone/watch source typechecks passed in
+[run 42237414837](https://github.com/agawlbb/FanControlWatch/actions/runs/42237414837).
+Physical swipe handling, readability and Notification Center cleanup need the
+next installed iPhone build; no app release was started by source validation.
+
 ## Home Assistant automation alerts
 
 This source adds **Settings → Notifications → Enable notifications** to the
