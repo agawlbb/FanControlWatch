@@ -1,3 +1,41 @@
+# Phone-only messages — 0.11.0 (26), November 6, 2026
+
+Published to the existing **Internal** TestFlight group. Apple build
+`cb11ec93-582a-4610-aa1e-311e44e9f2f3` is `VALID`, not expired and
+`IN_BETA_TESTING`, with marketing version 0.11.0 and no non-exempt encryption.
+Install the update through TestFlight on iPhone; publication does not remotely
+install it.
+
+Messages are retained only on the iPhone. Swipe left to dismiss immediately,
+including offline, with no confirmation. List and full-text views use adaptive
+black/white text. Messages expire after 12 hours; cleanup runs when the app opens
+and while active, and removes matching delivered notifications. Notification
+Center imports preserve original age and do not restore dismissed/expired items.
+There is no arrival clearing or HA message-history recovery.
+
+Signed source: `296388dc5af76e286034ac9c1e50e86242e63ef2`.
+Release task `release/phone-messages-26` started from canonical main
+`fa8b78aa8694be44b99540ef129de52e72172560`.
+All **85 Swift tests** and iPhone/watch source typechecks passed:
+https://github.com/agawlbb/FanControlWatch/actions/runs/42241396154
+Signed archive/export, signature and production APNs entitlement checks, upload,
+Apple processing and existing internal-group assignment passed:
+https://github.com/agawlbb/FanControlWatch/actions/runs/42241396000
+Immutable release tag: `v0.11.0-build26` at the signed source commit.
+
+HA **0.14.0** is deployed and loaded; its old live message copy was removed
+without changing pairing. Direct APNs remains enabled. The flight-alert automation
+retains delay, schedule-attention and route-change alerts, without arrival clearing.
+See [HA deployment evidence](https://github.com/agawlbb/FanControlHA/blob/main/DEPLOYMENT-PHONE-MESSAGES.md).
+
+The one-time release-branch trigger was removed after the successful release;
+normal TestFlight publication remains manual. Physical checks remain for swipe
+handling, adaptive text, full-text notification taps, expiry and Notification
+Center cleanup on the installed iPhone build. Automated checks do not establish
+on-device rendering or APNs receipt.
+
+---
+
 # On Duty last-known flight cache — 0.10.1 (25), November 5, 2026
 
 Fix task `fix/on-duty-cache` starts at fetched canonical main
